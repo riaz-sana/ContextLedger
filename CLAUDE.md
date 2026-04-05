@@ -1,7 +1,7 @@
 # ContextLedger — Session Handover
 
 > This file is the source of truth for any new Claude Code session entering this project.
-> Read this FIRST, then `PLAN.md`, then `contextledger-architecture.md` if you need deep detail.
+> Read this FIRST, then `docs/PLAN.md`, then `docs/contextledger-architecture.md` if you need deep detail.
 
 ---
 
@@ -20,8 +20,8 @@ Two modes: Second Brain (zero-config memory across AI sessions) and Skill Versio
 ## Current State
 
 ### What Exists
-- `contextledger-architecture.md` — full architecture document (the spec, do NOT modify without explicit instruction)
-- `PLAN.md` — phased build order, tech stack, module map
+- `docs/contextledger-architecture.md` — full architecture document (the spec, do NOT modify without explicit instruction)
+- `docs/PLAN.md` — phased build order, tech stack, module map
 - `tasks.json` — task queue for tracking implementation work
 - `contextledger/` — full source tree scaffolded with docstring-only placeholder modules
 - `tests/` — full test tree scaffolded, mirrors source structure 1:1 + integration tests
@@ -138,8 +138,8 @@ Pluggable Backends (Storage, Embedding, Registry — all Protocol-based)
 | File | Purpose |
 |------|---------|
 | `CLAUDE.md` | This file. Start here. |
-| `PLAN.md` | Build order, tech stack, module map |
-| `contextledger-architecture.md` | Full spec. The source of truth for all design decisions. |
+| `docs/PLAN.md` | Build order, tech stack, module map |
+| `docs/contextledger-architecture.md` | Full spec. The source of truth for all design decisions. |
 | `tasks.json` | Current task queue. Check before starting work. |
 | `contextledger/core/protocols.py` | Backend interfaces (implement these first) |
 | `contextledger/core/types.py` | Data types (implement these first) |
@@ -152,6 +152,6 @@ Pluggable Backends (Storage, Embedding, Registry — all Protocol-based)
 When starting a new session:
 1. Read this file
 2. Check `tasks.json` for the current queue
-3. Check `PLAN.md` for which phase is active
+3. Check `docs/PLAN.md` for which phase is active
 4. Check git status / recent commits for what changed since last session
 5. Pick up the next task or ask the user what to focus on
