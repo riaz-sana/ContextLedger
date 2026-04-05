@@ -558,6 +558,92 @@ pytest tests/backends/registry/test_github.py -v
 
 ---
 
+## Setting Up as MCP Skills
+
+ContextLedger exposes 5 MCP tools that any AI interface can call. Here's how to connect it.
+
+### Claude Code
+
+Add to your Claude Code MCP settings (`~/.claude/settings.json` or project `.claude/settings.local.json`):
+
+```json
+{
+  "mcpServers": {
+    "contextledger": {
+      "command": "python",
+      "args": ["-m", "contextledger.mcp.mcp_server"]
+    }
+  }
+}
+```
+
+Or if installed via pip:
+
+```json
+{
+  "mcpServers": {
+    "contextledger": {
+      "command": "ctx-mcp"
+    }
+  }
+}
+```
+
+Once configured, Claude Code can call these tools:
+
+| MCP Tool | What it does |
+|----------|-------------|
+| `ctx_ingest` | Ingest a session log — captures findings into three-tier memory |
+| `ctx_query` | Query across memory tiers — routes by intent (recent/temporal/historical) |
+| `ctx_grep` | Pattern search across all captured findings |
+| `ctx_status` | Show active profile, session count, memory stats |
+| `skill_checkout` | Switch active skill profile |
+
+### Cursor / Other MCP-Compatible Interfaces
+
+Same config pattern — point at the `python -m contextledger.mcp.mcp_server` command. Cursor uses `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "contextledger": {
+      "command": "python",
+      "args": ["-m", "contextledger.mcp.mcp_server"]
+    }
+  }
+}
+```
+
+### Running the MCP Server Standalone
+
+```bash
+# Direct
+python -m contextledger.mcp.mcp_server
+
+# Or via entry point (after pip install)
+ctx-mcp
+```
+
+### What Happens When Connected
+
+Once an AI interface connects to the ContextLedger MCP server:
+
+1. **Every session** can be ingested via `ctx_ingest` — the AI captures its own findings
+2. **Cross-session queries** via `ctx_query` — ask about things from previous sessions
+3. **Pattern search** via `ctx_grep` — find specific findings across all history
+4. **Profile switching** via `skill_checkout` — change domain-specific extraction rules
+
+The server persists in memory for the duration of the process. For persistent storage across restarts, configure SQLite:
+
+```python
+# In your profile.yaml or startup config
+session_context:
+  storage_backend: sqlite
+  db_path: ~/.contextledger/memory.db
+```
+
+---
+
 ## Configuration
 
 ContextLedger stores its registry at `CTX_HOME` (default: `~/.contextledger`).

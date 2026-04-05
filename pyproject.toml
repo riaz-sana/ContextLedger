@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
     "click>=8.0",
     "pyyaml>=6.0",
+    "mcp>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +33,7 @@ git = [
 
 [project.scripts]
 ctx = "contextledger.cli.main:cli"
+ctx-mcp = "contextledger.mcp.mcp_server:mcp.run"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
