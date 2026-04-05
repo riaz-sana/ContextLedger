@@ -22,32 +22,109 @@ def cli(ctx):
 def init(ctx):
     """Initialize a ContextLedger registry."""
     import subprocess
+    import yaml
+
     home = ctx.obj["CTX_HOME"]
     os.makedirs(home, exist_ok=True)
     os.makedirs(os.path.join(home, "skills"), exist_ok=True)
 
+    # --- Git init ---
     git_dir = os.path.join(home, ".git")
     if not os.path.exists(git_dir):
         subprocess.run(["git", "init", home], capture_output=True, check=True)
-        subprocess.run(
-            ["git", "config", "user.email", "contextledger@local"],
-            cwd=home, capture_output=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "ContextLedger"],
-            cwd=home, capture_output=True,
-        )
+        subprocess.run(["git", "config", "user.email", "contextledger@local"], cwd=home, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "ContextLedger"], cwd=home, capture_output=True)
         gitignore = os.path.join(home, ".gitignore")
         with open(gitignore, "w") as f:
             f.write("*.db\n*.db-shm\n*.db-wal\n")
         subprocess.run(["git", "add", ".gitignore"], cwd=home, capture_output=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initialize ContextLedger registry"],
-            cwd=home, capture_output=True,
-        )
+        subprocess.run(["git", "commit", "-m", "Initialize ContextLedger registry"], cwd=home, capture_output=True)
         click.echo("Git repository initialized.")
 
-    click.echo(f"ContextLedger registry initialized at {home}")
+    # --- Findings backend configuration ---
+    click.echo("\n--- Findings Backend (shared, team-accessible) ---")
+    click.echo("Options: supabase (hosted), turso (hosted), sqlite (local only)")
+    backend = click.prompt(
+        "Findings backend",
+        default="sqlite",
+        type=click.Choice(["supabase", "turso", "sqlite"], case_sensitive=False),
+    )
+
+    config = {
+        "memory_backend": "sqlite",
+        "memory_db_path": os.path.join(home, "memory.db"),
+        "findings_backend": backend,
+        "registry_backend": "git_local",
+    }
+
+    if backend == "supabase":
+        click.echo("\nCreate a free Supabase project at https://supabase.com")
+        click.echo("Then find your URL and anon key in Settings > API")
+        supabase_url = click.prompt("Supabase URL (or Enter to skip)", default="")
+        supabase_key = click.prompt("Supabase anon key (or Enter to skip)", default="", hide_input=True)
+        if supabase_url and supabase_key:
+            config["supabase_url"] = supabase_url
+            config["supabase_key"] = supabase_key
+            click.echo("Supabase configured.")
+        else:
+            config["findings_backend"] = "sqlite"
+            click.echo("Supabase skipped. Using local SQLite. Run 'ctx configure-findings' later.")
+    elif backend == "turso":
+        config["turso_url"] = click.prompt("Turso database URL (libsql://...)")
+        config["turso_token"] = click.prompt("Turso auth token", hide_input=True)
+        click.echo("Turso configured.")
+    else:
+        click.echo(f"Using local SQLite. Findings at {os.path.join(home, 'findings.db')}")
+
+    config_path = os.path.join(home, "config.yaml")
+    with open(config_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+    click.echo(f"\nContextLedger initialized at {home}")
+    click.echo(f"Memory: {config['memory_backend']} ({config.get('memory_db_path', 'remote')})")
+    click.echo(f"Findings: {config['findings_backend']}")
+
+
+@cli.command("configure-findings")
+@click.pass_context
+def configure_findings(ctx):
+    """Configure or change the findings backend."""
+    import yaml
+
+    home = ctx.obj["CTX_HOME"]
+    config_path = os.path.join(home, "config.yaml")
+
+    config = {}
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            config = yaml.safe_load(f) or {}
+
+    backend = click.prompt(
+        "Findings backend",
+        default=config.get("findings_backend", "sqlite"),
+        type=click.Choice(["supabase", "turso", "sqlite"], case_sensitive=False),
+    )
+
+    if backend == "supabase":
+        config["supabase_url"] = click.prompt("Supabase URL", default=config.get("supabase_url", ""))
+        config["supabase_key"] = click.prompt("Supabase anon key", hide_input=True, default="")
+    elif backend == "turso":
+        config["turso_url"] = click.prompt("Turso database URL")
+        config["turso_token"] = click.prompt("Turso auth token", hide_input=True)
+
+    config["findings_backend"] = backend
+    with open(config_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+    click.echo(f"Findings backend updated to: {backend}")
+
+    try:
+        from contextledger.backends.findings.factory import get_findings_backend
+        fb = get_findings_backend(config)
+        count = fb.count()
+        click.echo(f"Connection successful. {count} findings in store.")
+    except Exception as e:
+        click.echo(f"Warning: could not connect to findings backend: {e}")
 
 
 @cli.command("new")

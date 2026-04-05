@@ -85,6 +85,39 @@ class RegistryBackend(Protocol):
 
 
 @runtime_checkable
+class FindingsBackend(Protocol):
+    """Protocol for the shared findings store.
+
+    Stores structured, privacy-safe findings extracted by the synthesis pipeline.
+    Never stores raw session content or user messages.
+    """
+
+    def write_finding(self, finding: dict) -> str:
+        """Write a structured finding. Returns finding ID."""
+        ...
+
+    def get_findings_for_profile(
+        self, profile_name: str, limit: int = 50, min_confidence: float = 0.5
+    ) -> List[dict]:
+        """Get findings for a skill profile, ordered by recency."""
+        ...
+
+    def search_findings(
+        self, query_embedding: List[float], profile_name: Optional[str] = None, limit: int = 10
+    ) -> List[dict]:
+        """Semantic search across findings."""
+        ...
+
+    def list_domains(self, profile_name: str) -> List[str]:
+        """List all domains that have findings for this profile."""
+        ...
+
+    def count(self, profile_name: Optional[str] = None) -> int:
+        """Count total findings, optionally filtered by profile."""
+        ...
+
+
+@runtime_checkable
 class LLMClient(Protocol):
     """Protocol for LLM completion requests."""
 

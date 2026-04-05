@@ -15,9 +15,10 @@ class TestCLIInit:
         from click.testing import CliRunner
         from contextledger.cli.main import cli
         runner = CliRunner()
-        result = runner.invoke(cli, ["init"], catch_exceptions=False, env={"CTX_HOME": str(tmp_path)})
+        # Answer "sqlite" for findings backend prompt
+        result = runner.invoke(cli, ["init"], input="sqlite\n", env={"CTX_HOME": str(tmp_path)})
         assert result.exit_code == 0
-        assert "initialized" in result.output.lower() or "created" in result.output.lower()
+        assert "initialized" in result.output.lower()
 
 
 class TestCLINew:

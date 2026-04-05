@@ -93,6 +93,27 @@ class MultiSkillQueryResult:
 
 
 @dataclass
+class Finding:
+    """A structured, privacy-safe finding from the synthesis pipeline.
+
+    Written to findings.db and safe to share between users.
+    Contains NO raw session content, NO user messages, NO personal data.
+    """
+    id: str
+    skill_profile: str
+    skill_version: str
+    finding_type: str
+    summary: str
+    confidence: float
+    domain: str
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    evaluation_eligible: bool = True
+    embedding: List[float] = field(default_factory=list)
+    tags: List[str] = field(default_factory=list)
+    metadata: Dict = field(default_factory=dict)
+
+
+@dataclass
 class ProfileDiff:
     """Semantic diff between two profiles."""
 

@@ -24,15 +24,18 @@ class ContextLedgerMCP:
         self,
         embedding_backend: EmbeddingBackend,
         storage_backend: StorageBackend | None = None,
+        findings_backend=None,
     ) -> None:
         self._embedding = embedding_backend
         self._storage = storage_backend
+        self._findings_backend = findings_backend
         self._cmv = CMVEngine()
         self._router = TierRouter()
         self._immediate = ImmediateTier(max_turns=10)
         self._synthesis = SynthesisTier(window_days=7)
         self._archival = ArchivalTier()
         self._active_profile: str | None = None
+        self._active_version: str | None = None
         self._sessions_ingested: int = 0
         self._findings: list[dict] = []
 
