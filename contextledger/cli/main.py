@@ -84,9 +84,14 @@ def list_profiles(ctx):
 @click.pass_context
 def checkout(ctx, name):
     """Checkout a skill profile (name[@version])."""
+    home = ctx.obj["CTX_HOME"]
     version = None
     if "@" in name:
         name, version = name.rsplit("@", 1)
+    # Persist active profile
+    active_file = os.path.join(home, "active_profile")
+    with open(active_file, "w") as f:
+        f.write(name + (f"@{version}" if version else ""))
     click.echo(f"Checked out: {name}" + (f"@{version}" if version else ""))
 
 
@@ -117,12 +122,24 @@ def diff(ctx, a, b):
     """Diff two skill profiles."""
     home = ctx.obj["CTX_HOME"]
     click.echo(f"Diff: {a} vs {b}")
+    profiles = {}
     for name in [a, b]:
         path = os.path.join(home, "skills", name, "profile.yaml")
         if os.path.exists(path):
+            with open(path) as f:
+                profiles[name] = f.read()
             click.echo(f"  {name}: found")
         else:
             click.echo(f"  {name}: not found")
+            return
+    # Parse and compare
+    from contextledger.skill.parser import ProfileParser
+    parser = ProfileParser()
+    pa = parser.parse(profiles[a])
+    pb = parser.parse(profiles[b])
+    for key in sorted(set(list(pa.keys()) + list(pb.keys()))):
+        if pa.get(key) != pb.get(key):
+            click.echo(f"  changed: {key}")
 
 
 @cli.command()
@@ -131,7 +148,31 @@ def diff(ctx, a, b):
 @click.pass_context
 def merge(ctx, fork_name, parent_name):
     """Merge a fork back into parent."""
-    click.echo(f"Merging {fork_name} -> {parent_name}")
+    home = ctx.obj["CTX_HOME"]
+    from contextledger.skill.parser import ProfileParser
+    from contextledger.merge.resolver import ConflictResolver
+    parser = ProfileParser()
+    resolver = ConflictResolver()
+    profiles = {}
+    for name in [fork_name, parent_name]:
+        path = os.path.join(home, "skills", name, "profile.yaml")
+        if not os.path.exists(path):
+            click.echo(f"Profile '{name}' not found.")
+            return
+        with open(path) as f:
+            profiles[name] = parser.parse(f.read())
+    result = resolver.merge(profiles[parent_name], profiles[fork_name])
+    click.echo(f"Merge status: {result['status']}")
+    if result["status"] == "merged":
+        click.echo("Auto-merged successfully (tier 1).")
+    elif result["status"] == "evaluation_needed":
+        click.echo("Tier 2 conflicts detected — evaluation needed:")
+        for c in result.get("conflicts", []):
+            click.echo(f"  - {c['section']} (tier {c['tier']})")
+    else:
+        click.echo("Merge BLOCKED — tier 3 conflicts require manual resolution:")
+        for c in result.get("conflicts", []):
+            click.echo(f"  - {c['section']} (tier {c['tier']})")
 
 
 @cli.command()
@@ -162,9 +203,15 @@ def status(ctx):
                 if os.path.isdir(os.path.join(skills_dir, d))
             ]
         )
+    active = None
+    active_file = os.path.join(home, "active_profile")
+    if os.path.exists(active_file):
+        with open(active_file) as f:
+            active = f.read().strip()
     click.echo("ContextLedger status")
     click.echo(f"  Home: {home}")
     click.echo(f"  Profiles: {count}")
+    click.echo(f"  Active: {active or 'none'}")
 
 
 @cli.command()

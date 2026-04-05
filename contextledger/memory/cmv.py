@@ -27,7 +27,7 @@ class CMVEngine:
         node_id = str(uuid4())
         node = {
             "id": node_id,
-            "messages": list(session_log["messages"]),
+            "messages": deepcopy(session_log["messages"]),
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "parent_id": self._head,
         }
@@ -82,8 +82,12 @@ class CMVEngine:
     def get_history(self, id: str) -> list:
         """Walk parent_id chain to root, return in chronological order (root first)."""
         chain = []
+        visited: set[str] = set()
         current_id = id
         while current_id is not None:
+            if current_id in visited:
+                break  # cycle detected, stop traversal
+            visited.add(current_id)
             node = self._nodes.get(current_id)
             if node is None:
                 break

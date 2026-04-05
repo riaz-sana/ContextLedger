@@ -43,8 +43,8 @@ class Scorer:
     def compare(self, parent_outputs: list, fork_outputs: list, expected: list) -> dict:
         """Compare parent and fork outputs, returning a structured report.
 
-        Returns a dict with "parent", "fork", and "winner"/"recommendation" keys.
-        Recall is computed using the "id" fields from outputs matched against expected.
+        Returns a dict with "parent", "fork", "winner"/"recommendation", and
+        novelty scores. Recall is computed using "id" fields matched against expected.
         """
         parent_precision = self.precision(parent_outputs)
         fork_precision = self.precision(fork_outputs)
@@ -54,6 +54,10 @@ class Scorer:
 
         parent_recall = self.recall(expected, parent_ids)
         fork_recall = self.recall(expected, fork_ids)
+
+        # Novelty: how many findings does the fork surface that parent doesn't?
+        fork_novelty = self.novelty(parent_ids, fork_ids)
+        parent_novelty = self.novelty(fork_ids, parent_ids)
 
         parent_score = (parent_precision + parent_recall) / 2
         fork_score = (fork_precision + fork_recall) / 2
@@ -66,8 +70,8 @@ class Scorer:
             winner = "tie"
 
         return {
-            "parent": {"precision": parent_precision, "recall": parent_recall},
-            "fork": {"precision": fork_precision, "recall": fork_recall},
+            "parent": {"precision": parent_precision, "recall": parent_recall, "novelty": parent_novelty},
+            "fork": {"precision": fork_precision, "recall": fork_recall, "novelty": fork_novelty},
             "winner": winner,
             "recommendation": winner,
         }

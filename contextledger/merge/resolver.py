@@ -58,15 +58,19 @@ class ConflictResolver:
         """Classify a conflict into a resolution tier.
 
         Returns:
-            1 — Tier 1: values identical (auto-merge)
-            3 — Tier 3: has_dag_dependency AND values differ (block)
-            2 — Tier 2: values differ, no DAG dependency (evaluation)
+            1 — Tier 1: values identical or non-critical difference (auto-merge)
+            3 — Tier 3: DAG-related conflict (block, never auto-merge)
+            2 — Tier 2: template/synthesis logic difference (evaluation needed)
         """
         if parent_value == fork_value:
             return 1
         if has_dag_dependency:
             return 3
-        return 2
+        # Template changes need semantic evaluation
+        if "template" in section.lower():
+            return 2
+        # All other non-DAG differences are safe to auto-merge
+        return 1
 
     def merge(self, parent: dict, fork: dict) -> dict:
         """Merge two profile dicts with tier-based conflict resolution.
@@ -95,18 +99,14 @@ class ConflictResolver:
                 # Tier 1 — identical, no conflict to record
                 continue
 
-            # Values differ — classify
+            # Values differ — classify using the classify() method
             has_dag = "dag" in key.lower()
-
-            # Tier 3: anything involving DAG dependencies
-            if has_dag:
-                tier = 3
-            # Tier 2: template changes need semantic evaluation
-            elif "templates" in key.lower():
-                tier = 2
-            else:
-                # Non-dag, non-template differences auto-merge (tier 1)
-                tier = 1
+            tier = self.classify(
+                section=key,
+                parent_value=p_val,
+                fork_value=f_val,
+                has_dag_dependency=has_dag,
+            )
 
             conflicts.append({"section": key, "tier": tier})
             max_tier = max(max_tier, tier)

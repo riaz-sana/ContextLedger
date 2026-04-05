@@ -36,6 +36,9 @@ class ContextLedgerMCP:
         # Snapshot the session in CMV
         snapshot_id = self._cmv.snapshot(session_log)
 
+        # Trim heavy sessions via CMV (lossless compression)
+        self._cmv.trim(snapshot_id)
+
         # Extract signals from messages
         signals: list[dict] = []
         for msg in session_log.get("messages", []):

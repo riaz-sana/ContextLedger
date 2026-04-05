@@ -83,7 +83,7 @@ class SynthesisTier:
     def add_finding(self, finding: dict) -> None:
         """Append finding. If no 'timestamp' key, add datetime.now(UTC)."""
         if "timestamp" not in finding:
-            finding["timestamp"] = datetime.now(timezone.utc)
+            finding = {**finding, "timestamp": datetime.now(timezone.utc)}
         self._findings.append(finding)
 
     def _is_within_window(self, finding: dict) -> bool:

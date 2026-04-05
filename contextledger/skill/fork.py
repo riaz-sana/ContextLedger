@@ -30,7 +30,7 @@ class ForkManager:
             "inherited_refs": parent.get("refs", []),
         }
 
-    def resolve(self, profile: dict, registry: dict) -> dict:
+    def resolve(self, profile: dict, registry: dict, _visited: set | None = None) -> dict:
         """Walk the parent chain and return a fully resolved profile.
 
         Parameters
@@ -51,8 +51,17 @@ class ForkManager:
         Raises
         ------
         KeyError / ValueError
-            If a referenced parent is not found in the registry.
+            If a referenced parent is not found in the registry,
+            or if a cycle is detected in the parent chain.
         """
+        if _visited is None:
+            _visited = set()
+
+        profile_name = profile.get("name", "")
+        if profile_name in _visited:
+            raise ValueError(f"Cycle detected in parent chain: '{profile_name}'")
+        _visited.add(profile_name)
+
         parent_name = profile.get("parent")
 
         # Base case: no parent — parse profile_yaml if present, then return.
@@ -76,7 +85,7 @@ class ForkManager:
             )
 
         parent_profile = registry[parent_name]
-        resolved_parent = self.resolve(parent_profile, registry)
+        resolved_parent = self.resolve(parent_profile, registry, _visited)
 
         # Deep-merge: parent provides base, child overrides.
         return _deep_merge(resolved_parent, profile)
