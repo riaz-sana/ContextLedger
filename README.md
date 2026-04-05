@@ -6,7 +6,7 @@
 
 ## The Problem
 
-You've built a skill — a workflow that extracts findings from a supervised database. It works. Now you need to adapt it for filesystem documents. So you copy the files, make changes, and now you have two versions floating around with no clear relationship. Later you fix a synthesis bug in the filesystem version and want that fix in the original too. You have no way to do that cleanly.
+You build a workflow—extraction rules, reasoning logic, synthesis templates—for one domain. It works. Now you need to adapt it for a different domain. So you copy the files, make changes, and now you have two versions floating around with no clear relationship. Later you fix a synthesis bug in the second version and want that fix in the original too. You have no way to do that cleanly.
 
 Meanwhile, your research context is fragmented. You found something important in a Claude Code session three days ago. You're in Claude Chat now and can't access it. You switch to Cursor tomorrow and lose that thread again.
 
