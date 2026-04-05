@@ -5,8 +5,14 @@ Task: TASK-013 — Implement Jina EmbeddingBackend
 
 import pytest
 
+try:
+    import jina_embeddings  # noqa: F401
+    _has_jina = True
+except ImportError:
+    _has_jina = False
 
-@pytest.mark.skipif(True, reason="Jina embeddings not installed — skip until Phase 3")
+
+@pytest.mark.skipif(not _has_jina, reason="jina-embeddings not installed — pip install jina-embeddings")
 class TestJinaEmbeddingBackend:
     def test_encode_returns_vector(self):
         from contextledger.backends.embedding.jina import JinaEmbeddingBackend
