@@ -21,9 +21,32 @@ def cli(ctx):
 @click.pass_context
 def init(ctx):
     """Initialize a ContextLedger registry."""
+    import subprocess
     home = ctx.obj["CTX_HOME"]
     os.makedirs(home, exist_ok=True)
     os.makedirs(os.path.join(home, "skills"), exist_ok=True)
+
+    git_dir = os.path.join(home, ".git")
+    if not os.path.exists(git_dir):
+        subprocess.run(["git", "init", home], capture_output=True, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "contextledger@local"],
+            cwd=home, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "ContextLedger"],
+            cwd=home, capture_output=True,
+        )
+        gitignore = os.path.join(home, ".gitignore")
+        with open(gitignore, "w") as f:
+            f.write("*.db\n*.db-shm\n*.db-wal\n")
+        subprocess.run(["git", "add", ".gitignore"], cwd=home, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Initialize ContextLedger registry"],
+            cwd=home, capture_output=True,
+        )
+        click.echo("Git repository initialized.")
+
     click.echo(f"ContextLedger registry initialized at {home}")
 
 
@@ -163,16 +186,33 @@ def merge(ctx, fork_name, parent_name):
             profiles[name] = parser.parse(f.read())
     result = resolver.merge(profiles[parent_name], profiles[fork_name])
     click.echo(f"Merge status: {result['status']}")
+
     if result["status"] == "merged":
-        click.echo("Auto-merged successfully (tier 1).")
+        import yaml
+        merged = result["merged"]
+        parent_path = os.path.join(home, "skills", parent_name, "profile.yaml")
+        with open(parent_path, "w") as f:
+            yaml.dump(merged, f, default_flow_style=False, sort_keys=False)
+        click.echo(f"Merged successfully. '{parent_name}' profile updated.")
+
     elif result["status"] == "evaluation_needed":
         click.echo("Tier 2 conflicts detected — evaluation needed:")
         for c in result.get("conflicts", []):
             click.echo(f"  - {c['section']} (tier {c['tier']})")
+        click.echo(
+            "\nRun with --llm-eval to use LLM-backed scoring, "
+            "or resolve manually and re-run merge."
+        )
+
     else:
         click.echo("Merge BLOCKED — tier 3 conflicts require manual resolution:")
         for c in result.get("conflicts", []):
             click.echo(f"  - {c['section']} (tier {c['tier']})")
+        click.echo(
+            f"\nOpen both profiles side by side:\n"
+            f"  {os.path.join(home, 'skills', parent_name, 'profile.yaml')}\n"
+            f"  {os.path.join(home, 'skills', fork_name, 'profile.yaml')}"
+        )
 
 
 @cli.command()
@@ -180,13 +220,28 @@ def merge(ctx, fork_name, parent_name):
 @click.pass_context
 def query(ctx, text):
     """Query context."""
-    from contextledger.mcp.server import ContextLedgerMCP
-    from contextledger.backends.embedding.jina import JinaEmbeddingBackend
+    from contextledger.backends.embedding.factory import get_embedding_backend, EmbeddingBackendNotAvailable
+    from contextledger.backends.storage.sqlite import SQLiteStorageBackend
 
-    server = ContextLedgerMCP(embedding_backend=JinaEmbeddingBackend())
-    results = server.ctx_query(text)
+    try:
+        embedding = get_embedding_backend()
+    except EmbeddingBackendNotAvailable as e:
+        click.echo(str(e), err=True)
+        return
+
+    home = ctx.obj["CTX_HOME"]
+    db_path = os.path.join(home, "memory.db")
+    storage = SQLiteStorageBackend(db_path)
+
+    query_embedding = embedding.encode(text)
+    results = storage.search(query_embedding, limit=10)
+
+    if not results:
+        click.echo("No results found. Ingest some sessions first.")
+        return
     for r in results:
-        click.echo(f"  - {r}")
+        content = r.get("content", "")
+        click.echo(f"  - {content[:120]}")
 
 
 @cli.command()
@@ -302,7 +357,31 @@ def project_status(ctx):
 def project_query(ctx, text, query_all, profile):
     """Query context in a multi-skill project."""
     from contextledger.project.manager import ProjectManager
-    mgr = ProjectManager()
+    from contextledger.backends.embedding.factory import get_embedding_backend, EmbeddingBackendNotAvailable
+    from contextledger.backends.storage.sqlite import SQLiteStorageBackend
+
+    try:
+        embedding = get_embedding_backend()
+    except EmbeddingBackendNotAvailable as e:
+        click.echo(str(e), err=True)
+        return
+
+    home = ctx.obj["CTX_HOME"]
+    db_path = os.path.join(home, "memory.db")
+    storage = SQLiteStorageBackend(db_path)
+
+    class _MemoryAdapter:
+        def __init__(self, storage, embedding):
+            self._storage = storage
+            self._embedding = embedding
+        def query(self, query, profile_name=None, limit=10):
+            emb = self._embedding.encode(query)
+            results = self._storage.search(emb, limit=limit)
+            if profile_name:
+                results = [r for r in results if r.get("profile_name") == profile_name]
+            return results
+
+    mgr = ProjectManager(memory_system=_MemoryAdapter(storage, embedding))
     try:
         mgr.load()
     except FileNotFoundError as e:

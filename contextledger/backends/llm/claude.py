@@ -8,7 +8,7 @@ Requires: pip install anthropic
 class ClaudeLLMClient:
     """LLMClient backed by Claude via the Anthropic API."""
 
-    def __init__(self, api_key: str = None, model: str = "claude-sonnet-4-6"):
+    def __init__(self, api_key: str = None, model: str = "claude-sonnet-4-20250514"):
         try:
             import anthropic
         except ImportError:

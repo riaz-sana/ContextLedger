@@ -16,6 +16,7 @@ import json
 from mcp.server.fastmcp import FastMCP
 
 from contextledger.mcp.server import ContextLedgerMCP
+from contextledger.backends.embedding.factory import get_embedding_backend, EmbeddingBackendNotAvailable
 
 # Create MCP server
 mcp = FastMCP(
@@ -24,7 +25,14 @@ mcp = FastMCP(
 )
 
 # Shared instance — persists across tool calls within a session
-_engine = ContextLedgerMCP()
+try:
+    _embedding = get_embedding_backend()
+except EmbeddingBackendNotAvailable as e:
+    import sys
+    print(str(e), file=sys.stderr)
+    sys.exit(1)
+
+_engine = ContextLedgerMCP(embedding_backend=_embedding)
 
 
 @mcp.tool()
