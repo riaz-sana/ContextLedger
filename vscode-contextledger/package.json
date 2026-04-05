@@ -1,0 +1,63 @@
+{
+  "name": "contextledger",
+  "displayName": "ContextLedger",
+  "description": "Skill versioning and context synthesis for AI engineers",
+  "version": "0.1.0",
+  "publisher": "contextledger",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ContextLedger.query",
+        "title": "ContextLedger: Query Context"
+      },
+      {
+        "command": "ContextLedger.switchProfile",
+        "title": "ContextLedger: Switch Profile"
+      },
+      {
+        "command": "ContextLedger.status",
+        "title": "ContextLedger: Status"
+      },
+      {
+        "command": "ContextLedger.ingestSession",
+        "title": "ContextLedger: Ingest Session"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "contextledger",
+          "title": "ContextLedger",
+          "icon": "$(book)"
+        }
+      ]
+    },
+    "views": {
+      "contextledger": [
+        {
+          "id": "contextledger.findings",
+          "name": "Findings"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc",
+    "watch": "tsc -watch"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}

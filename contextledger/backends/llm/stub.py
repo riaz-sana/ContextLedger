@@ -28,6 +28,27 @@ class StubLLMClient:
                 "novelty_b": 0.6,
             })
 
+        # Skill importer / extractor prompts — domain inference
+        if "claude code skill definition" in prompt_lower and "domain" in prompt_lower:
+            return json.dumps({
+                "domain": "frontend development",
+                "entities": ["component", "design_pattern", "finding"],
+                "sources": ["coding_session"],
+            })
+
+        # Example-based creator — extraction rule inference
+        if "infer the extraction rules" in prompt_lower or (
+            "example" in prompt_lower and "rules" in prompt_lower and "fields" in prompt_lower
+        ):
+            return json.dumps({
+                "entities": ["finding", "table_issue"],
+                "rules": [
+                    {"match": "missing index or constraint", "extract": "table_issue", "fields": ["table", "column"]},
+                    {"match": "slow query", "extract": "finding", "fields": ["table", "column", "duration"]},
+                ],
+                "domain": "database-analysis",
+            })
+
         if "extract" in prompt_lower and "entities" in prompt_lower:
             return json.dumps({
                 "entities": [

@@ -18,7 +18,9 @@
       "status": "complete",
       "test_file": "tests/core/test_protocols.py",
       "target_file": "contextledger/core/protocols.py",
-      "depends_on": ["TASK-001"]
+      "depends_on": [
+        "TASK-001"
+      ]
     },
     {
       "id": "TASK-003",
@@ -27,7 +29,9 @@
       "status": "complete",
       "test_file": "tests/backends/storage/test_stub.py",
       "target_file": "contextledger/backends/storage/stub.py",
-      "depends_on": ["TASK-002"]
+      "depends_on": [
+        "TASK-002"
+      ]
     },
     {
       "id": "TASK-004",
@@ -36,7 +40,9 @@
       "status": "complete",
       "test_file": "tests/backends/embedding/test_stub.py",
       "target_file": "contextledger/backends/embedding/stub.py",
-      "depends_on": ["TASK-002"]
+      "depends_on": [
+        "TASK-002"
+      ]
     },
     {
       "id": "TASK-005",
@@ -45,7 +51,10 @@
       "status": "complete",
       "test_file": "tests/backends/registry/test_stub.py",
       "target_file": "contextledger/backends/registry/stub.py",
-      "depends_on": ["TASK-001", "TASK-002"]
+      "depends_on": [
+        "TASK-001",
+        "TASK-002"
+      ]
     },
     {
       "id": "TASK-006",
@@ -63,7 +72,10 @@
       "status": "complete",
       "test_file": "tests/memory/test_cmv.py",
       "target_file": "contextledger/memory/cmv.py",
-      "depends_on": ["TASK-001", "TASK-006"]
+      "depends_on": [
+        "TASK-001",
+        "TASK-006"
+      ]
     },
     {
       "id": "TASK-008",
@@ -72,7 +84,11 @@
       "status": "complete",
       "test_file": "tests/memory/test_tiers.py",
       "target_file": "contextledger/memory/tiers.py",
-      "depends_on": ["TASK-001", "TASK-003", "TASK-004"]
+      "depends_on": [
+        "TASK-001",
+        "TASK-003",
+        "TASK-004"
+      ]
     },
     {
       "id": "TASK-009",
@@ -81,7 +97,10 @@
       "status": "complete",
       "test_file": "tests/backends/storage/test_sqlite.py",
       "target_file": "contextledger/backends/storage/sqlite.py",
-      "depends_on": ["TASK-001", "TASK-002"]
+      "depends_on": [
+        "TASK-001",
+        "TASK-002"
+      ]
     },
     {
       "id": "TASK-010",
@@ -90,7 +109,9 @@
       "status": "complete",
       "test_file": "tests/backends/embedding/test_jina.py",
       "target_file": "contextledger/backends/embedding/jina.py",
-      "depends_on": ["TASK-002"]
+      "depends_on": [
+        "TASK-002"
+      ]
     },
     {
       "id": "TASK-011",
@@ -99,7 +120,10 @@
       "status": "complete",
       "test_file": "tests/backends/registry/test_git_local.py",
       "target_file": "contextledger/backends/registry/git_local.py",
-      "depends_on": ["TASK-001", "TASK-002"]
+      "depends_on": [
+        "TASK-001",
+        "TASK-002"
+      ]
     },
     {
       "id": "TASK-012",
@@ -117,7 +141,9 @@
       "status": "complete",
       "test_file": "tests/skill/test_dag.py",
       "target_file": "contextledger/skill/dag.py",
-      "depends_on": ["TASK-012"]
+      "depends_on": [
+        "TASK-012"
+      ]
     },
     {
       "id": "TASK-014",
@@ -126,7 +152,9 @@
       "status": "complete",
       "test_file": "tests/skill/test_fork.py",
       "target_file": "contextledger/skill/fork.py",
-      "depends_on": ["TASK-012"]
+      "depends_on": [
+        "TASK-012"
+      ]
     },
     {
       "id": "TASK-015",
@@ -135,7 +163,9 @@
       "status": "complete",
       "test_file": null,
       "target_file": "contextledger/skill/wizard.py",
-      "depends_on": ["TASK-012"]
+      "depends_on": [
+        "TASK-012"
+      ]
     },
     {
       "id": "TASK-016",
@@ -153,7 +183,9 @@
       "status": "complete",
       "test_file": "tests/merge/test_resolver.py",
       "target_file": "contextledger/merge/resolver.py",
-      "depends_on": ["TASK-012"]
+      "depends_on": [
+        "TASK-012"
+      ]
     },
     {
       "id": "TASK-018",
@@ -162,7 +194,10 @@
       "status": "complete",
       "test_file": "tests/merge/test_evaluator.py",
       "target_file": "contextledger/merge/evaluator.py",
-      "depends_on": ["TASK-016", "TASK-017"]
+      "depends_on": [
+        "TASK-016",
+        "TASK-017"
+      ]
     },
     {
       "id": "TASK-019",
@@ -171,7 +206,11 @@
       "status": "complete",
       "test_file": "tests/mcp/test_server.py",
       "target_file": "contextledger/mcp/server.py",
-      "depends_on": ["TASK-006", "TASK-007", "TASK-008"]
+      "depends_on": [
+        "TASK-006",
+        "TASK-007",
+        "TASK-008"
+      ]
     },
     {
       "id": "TASK-020",
@@ -180,7 +219,11 @@
       "status": "complete",
       "test_file": "tests/cli/test_main.py",
       "target_file": "contextledger/cli/main.py",
-      "depends_on": ["TASK-014", "TASK-017", "TASK-019"]
+      "depends_on": [
+        "TASK-014",
+        "TASK-017",
+        "TASK-019"
+      ]
     },
     {
       "id": "TASK-021",
@@ -189,7 +232,9 @@
       "status": "complete",
       "test_file": null,
       "target_file": "pyproject.toml",
-      "depends_on": ["TASK-020"]
+      "depends_on": [
+        "TASK-020"
+      ]
     },
     {
       "id": "TASK-022",
@@ -198,7 +243,9 @@
       "status": "complete",
       "test_file": "tests/integration/test_second_brain.py",
       "target_file": null,
-      "depends_on": ["TASK-019"]
+      "depends_on": [
+        "TASK-019"
+      ]
     },
     {
       "id": "TASK-023",
@@ -207,7 +254,11 @@
       "status": "complete",
       "test_file": "tests/integration/test_skill_versioning.py",
       "target_file": null,
-      "depends_on": ["TASK-014", "TASK-017", "TASK-018"]
+      "depends_on": [
+        "TASK-014",
+        "TASK-017",
+        "TASK-018"
+      ]
     },
     {
       "id": "TASK-024",
@@ -216,7 +267,9 @@
       "status": "complete",
       "test_file": null,
       "target_file": "contextledger/backends/storage/postgres.py",
-      "depends_on": ["TASK-002"]
+      "depends_on": [
+        "TASK-002"
+      ]
     },
     {
       "id": "TASK-025",
@@ -225,7 +278,9 @@
       "status": "complete",
       "test_file": null,
       "target_file": "contextledger/backends/embedding/openai.py",
-      "depends_on": ["TASK-002"]
+      "depends_on": [
+        "TASK-002"
+      ]
     },
     {
       "id": "TASK-026",
@@ -234,7 +289,9 @@
       "status": "complete",
       "test_file": null,
       "target_file": "contextledger/backends/registry/github.py",
-      "depends_on": ["TASK-002"]
+      "depends_on": [
+        "TASK-002"
+      ]
     },
     {
       "id": "TASK-027",
@@ -248,7 +305,9 @@
         "contextledger/backends/llm/stub.py",
         "contextledger/backends/llm/claude.py"
       ],
-      "depends_on": ["TASK-002"]
+      "depends_on": [
+        "TASK-002"
+      ]
     },
     {
       "id": "TASK-028",
@@ -258,7 +317,10 @@
       "status": "complete",
       "test_file": "tests/skill/test_node_executor.py",
       "target_file": "contextledger/skill/dag.py",
-      "depends_on": ["TASK-013", "TASK-027"]
+      "depends_on": [
+        "TASK-013",
+        "TASK-027"
+      ]
     },
     {
       "id": "TASK-029",
@@ -272,7 +334,13 @@
         "contextledger/merge/scorer.py",
         "contextledger/merge/resolver.py"
       ],
-      "depends_on": ["TASK-027", "TASK-028", "TASK-016", "TASK-017", "TASK-018"]
+      "depends_on": [
+        "TASK-027",
+        "TASK-028",
+        "TASK-016",
+        "TASK-017",
+        "TASK-018"
+      ]
     },
     {
       "id": "TASK-030",
@@ -282,7 +350,9 @@
       "status": "complete",
       "test_file": "tests/project/test_manifest.py",
       "target_file": "contextledger/project/manifest.py",
-      "depends_on": ["TASK-001"]
+      "depends_on": [
+        "TASK-001"
+      ]
     },
     {
       "id": "TASK-031",
@@ -292,7 +362,9 @@
       "status": "complete",
       "test_file": "tests/project/test_router.py",
       "target_file": "contextledger/project/router.py",
-      "depends_on": ["TASK-030"]
+      "depends_on": [
+        "TASK-030"
+      ]
     },
     {
       "id": "TASK-032",
@@ -302,7 +374,9 @@
       "status": "complete",
       "test_file": "tests/project/test_fusion.py",
       "target_file": "contextledger/project/fusion.py",
-      "depends_on": ["TASK-001"]
+      "depends_on": [
+        "TASK-001"
+      ]
     },
     {
       "id": "TASK-033",
@@ -312,7 +386,11 @@
       "status": "complete",
       "test_file": "tests/project/test_manager.py",
       "target_file": "contextledger/project/manager.py",
-      "depends_on": ["TASK-030", "TASK-031", "TASK-032"]
+      "depends_on": [
+        "TASK-030",
+        "TASK-031",
+        "TASK-032"
+      ]
     },
     {
       "id": "TASK-034",
@@ -322,7 +400,12 @@
       "status": "complete",
       "test_file": "tests/integration/test_multi_skill_project.py",
       "target_file": null,
-      "depends_on": ["TASK-030", "TASK-031", "TASK-032", "TASK-033"]
+      "depends_on": [
+        "TASK-030",
+        "TASK-031",
+        "TASK-032",
+        "TASK-033"
+      ]
     },
     {
       "id": "TASK-035",
@@ -332,7 +415,9 @@
       "status": "complete",
       "test_file": "tests/cli/test_project_commands.py",
       "target_file": "contextledger/cli/main.py",
-      "depends_on": ["TASK-033"]
+      "depends_on": [
+        "TASK-033"
+      ]
     },
     {
       "id": "TASK-036",
@@ -342,7 +427,10 @@
       "status": "complete",
       "test_file": "tests/mcp/test_server.py",
       "target_file": "contextledger/mcp/server.py",
-      "depends_on": ["TASK-019", "TASK-033"]
+      "depends_on": [
+        "TASK-019",
+        "TASK-033"
+      ]
     },
     {
       "id": "TASK-037",
@@ -352,14 +440,16 @@
       "status": "complete",
       "test_file": "tests/core/test_types.py",
       "target_file": "contextledger/core/types.py",
-      "depends_on": ["TASK-001"]
+      "depends_on": [
+        "TASK-001"
+      ]
     },
     {
       "id": "TASK-038",
       "title": "README corrections (6 targeted fixes)",
       "description": "Apply 6 factual corrections to README.md from contextledger-remaining-work.md Part 3. Fix 1: Replace domain-specific opening problem statement with generic workflow fork/merge description and domain-agnostic use cases. Fix 2: Replace vague 'semantic conflict resolution' claim with precise tier-based description. Fix 3: Replace 'works for any workflow' with concrete profile-based description. Fix 4: Expand 'semantic understanding on Git' in Key Design Decisions with 3 concrete mechanisms (section-aware diffing, DAG dependency analysis, Tier 2 evaluation). Fix 5: Split conflict resolution status into separate tier 1/2/3 rows with accurate readiness indicators. Fix 6: Update GitHub repo description (manual on GitHub.com, not code).",
       "phase": "remaining-work",
-      "status": "not_started",
+      "status": "complete",
       "test_file": null,
       "target_file": "README.md",
       "depends_on": []
@@ -369,7 +459,7 @@
       "title": "README multi-skill project section",
       "description": "Add 'Mode 3: Multi-Skill Projects' section to README.md after 'Mode 2: Second Brain', documenting Phase 2 functionality. Include: project manifest setup (ctx project init), project.yaml example with skills/routes/fusion config, query commands (auto-routed, --all, --profile override, route dry-run, project status), guidance on when to use multi-skill vs single-skill.",
       "phase": "remaining-work",
-      "status": "not_started",
+      "status": "complete",
       "test_file": null,
       "target_file": "README.md",
       "depends_on": []
@@ -379,7 +469,7 @@
       "title": "Update README opening per positioning doc",
       "description": "Replace current README opening (down to '## The Problem') with tightened version from contextledger-positioning.md Part 1. Lead with problem statement, pip install, then Skill Versioning / Second Brain / Multi-Skill Projects sections with concrete CLI examples. Add 'What this is not' footer.",
       "phase": "remaining-work",
-      "status": "not_started",
+      "status": "complete",
       "test_file": null,
       "target_file": "README.md",
       "depends_on": []
@@ -387,9 +477,9 @@
     {
       "id": "TASK-041",
       "title": "Python function extractor (Phase 3 Feature 1A)",
-      "description": "Build PythonExtractor in skill/extractor.py. Reads a Python file via ast.parse, identifies candidate functions (names containing extract/parse/analyse/synthesise/filter/clean/validate, or returning dicts with findings/entities/results keys). Maps candidates to DAG node types via name inference. Infers inter-function dependencies from call graph. Generates a valid profile.yaml stub with extraction entities, synthesis DAG nodes, and REVIEW comments for user to fill in. No LLM dependency — pure AST analysis.",
+      "description": "Build PythonExtractor in skill/extractor.py. Reads a Python file via ast.parse, identifies candidate functions (names containing extract/parse/analyse/synthesise/filter/clean/validate, or returning dicts with findings/entities/results keys). Maps candidates to DAG node types via name inference. Infers inter-function dependencies from call graph. Generates a valid profile.yaml stub with extraction entities, synthesis DAG nodes, and REVIEW comments for user to fill in. No LLM dependency \u00e2\u20ac\u201d pure AST analysis.",
       "phase": 3,
-      "status": "not_started",
+      "status": "complete",
       "test_file": "tests/skill/test_extractor.py",
       "target_file": "contextledger/skill/extractor.py",
       "depends_on": []
@@ -399,87 +489,97 @@
       "title": "Claude Code skill importer (Phase 3 Feature 1B)",
       "description": "Build ClaudeSkillImporter in skill/extractor.py. Reads an existing .claude/skills/SKILL.md file, uses LLMClient to infer domain/entities/sources from content, generates a ContextLedger profile.yaml that wraps the SKILL.md as a reference document in refs/. Requires LLMClient (protocol exists, ClaudeLLMClient and StubLLMClient already implemented).",
       "phase": 3,
-      "status": "not_started",
+      "status": "complete",
       "test_file": "tests/skill/test_extractor.py",
       "target_file": "contextledger/skill/extractor.py",
-      "depends_on": ["TASK-041"]
+      "depends_on": [
+        "TASK-041"
+      ]
     },
     {
       "id": "TASK-043",
       "title": "Example-based skill creator (Phase 3 Feature 1C)",
       "description": "Build ExampleBasedCreator in skill/extractor.py. User provides 3-5 JSON examples of {session_excerpt, finding} pairs. Uses LLMClient with few-shot prompting to infer extraction rules from examples. Generates extraction.rules section of profile.yaml. Requires minimum 3 examples, raises on fewer. Requires LLMClient.",
       "phase": 3,
-      "status": "not_started",
+      "status": "complete",
       "test_file": "tests/skill/test_extractor.py",
       "target_file": "contextledger/skill/extractor.py",
-      "depends_on": ["TASK-041"]
+      "depends_on": [
+        "TASK-041"
+      ]
     },
     {
       "id": "TASK-044",
       "title": "Extractor CLI commands",
       "description": "Add CLI commands to cli/main.py for the three extractors: ctx extract --from <file> --output <path> (Python extractor), ctx import --from <skill_md> --output <path> (Claude skill importer), extend ctx new with --from-examples <json_file> option (example-based creator). All commands write to stdout or --output file.",
       "phase": 3,
-      "status": "not_started",
+      "status": "complete",
       "test_file": "tests/cli/test_main.py",
       "target_file": "contextledger/cli/main.py",
-      "depends_on": ["TASK-041", "TASK-042", "TASK-043"]
+      "depends_on": [
+        "TASK-041",
+        "TASK-042",
+        "TASK-043"
+      ]
     },
     {
       "id": "TASK-045",
       "title": "LangChain callback handler (Phase 3 Feature 5)",
       "description": "Build ContextLedgerCallbackHandler in integrations/langchain_handler.py. Extends langchain.callbacks.base.BaseCallbackHandler. On on_llm_start: captures prompt as user message. On on_llm_end: captures response as assistant message. On on_chain_end: ingests accumulated session via ContextLedgerMCP.ctx_ingest(). Constructor accepts optional profile name. Generates unique session_id per chain run. LangChain is an optional dependency (import guarded).",
       "phase": 3,
-      "status": "not_started",
+      "status": "complete",
       "test_file": "tests/integrations/test_langchain_handler.py",
       "target_file": "contextledger/integrations/langchain_handler.py",
       "depends_on": []
     },
     {
       "id": "TASK-046",
-      "title": "Visual editor — FastAPI backend (Phase 3 Feature 2 backend)",
+      "title": "Visual editor \u00e2\u20ac\u201d FastAPI backend (Phase 3 Feature 2 backend)",
       "description": "Build editor server in editor/server.py using FastAPI. Endpoints: GET /api/profiles (list all), GET /api/profiles/{name} (get parsed YAML), POST /api/profiles/{name} (save via RegistryBackend), GET /api/profiles/{name}/dag (nodes+edges for visualization), GET /api/diff/{a}/{b} (section-by-section diff), POST /api/merge/{fork}/{parent} (trigger merge with tier result), GET /api/status (registry stats). CLI command: ctx editor [--port 7432] [--no-browser]. All writes go through existing ProfileParser and RegistryBackend. FastAPI is an optional dependency.",
       "phase": 3,
-      "status": "not_started",
+      "status": "complete",
       "test_file": "tests/editor/test_server.py",
       "target_file": "contextledger/editor/server.py",
       "depends_on": []
     },
     {
       "id": "TASK-047",
-      "title": "Visual editor — single-file React UI (Phase 3 Feature 2 frontend)",
+      "title": "Visual editor \u00e2\u20ac\u201d single-file React UI (Phase 3 Feature 2 frontend)",
       "description": "Build single index.html in editor/ui/ served by FastAPI. Uses React and Cytoscape.js loaded from CDN (no npm build step). Four tabs: Profiles (list/edit/fork/compare), DAG Editor (visual drag-and-drop with colored node types), Diff View (side-by-side section comparison with merge buttons), Context Browser (query box with three-tier memory results). All state managed via API calls to the FastAPI backend.",
       "phase": 3,
-      "status": "not_started",
+      "status": "complete",
       "test_file": null,
       "target_file": "contextledger/editor/ui/index.html",
-      "depends_on": ["TASK-046"]
+      "depends_on": [
+        "TASK-046"
+      ]
     },
     {
       "id": "TASK-048",
       "title": "VS Code extension (Phase 3 Feature 3)",
       "description": "Create vscode-contextledger/ directory with package.json, tsconfig.json. Implement ctxClient.ts that shells out to ctx CLI via child_process. Implement extension.ts with activation and command registration. Commands: ContextLedger: Query, Switch Profile, Ingest Current Session, Show Status. Sidebar tree view showing active profile and recent findings. Status bar item showing active skill. Auto-routing on file open via ctx project route --file.",
       "phase": 3,
-      "status": "not_started",
+      "status": "complete",
       "test_file": null,
       "target_file": "vscode-contextledger/src/extension.ts",
       "depends_on": []
     },
     {
       "id": "TASK-049",
-      "title": "GitHub Actions — skill-diff-action (Phase 3 Feature 4A)",
+      "title": "GitHub Actions \u00e2\u20ac\u201d skill-diff-action (Phase 3 Feature 4A)",
       "description": "Create GitHub Action that runs on PRs modifying profile.yaml files. Auto-detects changed profiles, runs ctx diff on each, posts structured PR comment with section-by-section diff. Includes Tier 2 precision/recall/novelty scores if evaluation data exists. Fails the check if Tier 3 conflicts are present (blocks merge). Requires ANTHROPIC_API_KEY secret for Tier 2.",
       "phase": 3,
-      "status": "not_started",
+      "status": "complete",
       "test_file": null,
       "target_file": "actions/skill-diff/action.yml",
       "depends_on": []
     },
     {
       "id": "TASK-050",
-      "title": "GitHub Actions — skill-validate-action (Phase 3 Feature 4B)",
+      "title": "GitHub Actions \u00e2\u20ac\u201d skill-validate-action (Phase 3 Feature 4B)",
       "description": "Create GitHub Action that validates all declared skill profiles in project.yaml exist in the registry. Takes project-manifest input pointing to .contextledger/project.yaml. Fails if any declared skill is missing.",
       "phase": 3,
-      "status": "not_started",
+      "status": "complete",
       "test_file": null,
       "target_file": "actions/skill-validate/action.yml",
       "depends_on": []

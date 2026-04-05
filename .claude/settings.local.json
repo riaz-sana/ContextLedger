@@ -45,7 +45,12 @@
       "Bash(find . -name \"__pycache__\" -type d -exec rm -rf {} +)",
       "Bash(python -m pytest tests/ --tb=short -v)",
       "Bash(pip search:*)",
-      "Bash(pip index:*)"
+      "Bash(pip index:*)",
+      "Bash(python -m pytest tests/ --tb=short --ignore=tests/backends/embedding/test_jina.py --ignore=tests/integration/test_llm_real.py)",
+      "Bash(python -m pytest tests/backends/embedding/test_jina.py --tb=short -v)",
+      "Bash(python -m pytest tests/integration/test_llm_real.py --tb=short -v)",
+      "Bash(python -m contextledger init)",
+      "Bash(python -m pytest tests/ --tb=short --ignore=tests/backends/embedding/test_jina.py --ignore=tests/integration/test_llm_real.py -q)"
     ]
   }
 }

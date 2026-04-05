@@ -278,6 +278,70 @@ def connect(ctx, interface):
     click.echo(f"Connected to {interface}")
 
 
+@cli.command("extract")
+@click.option("--from", "from_file", required=True, help="Python file to extract from")
+@click.option("--output", default=None, help="Output path (default: stdout)")
+@click.pass_context
+def extract_cmd(ctx, from_file, output):
+    """Generate a profile.yaml from existing Python code."""
+    from contextledger.skill.extractor import PythonExtractor
+    extractor = PythonExtractor()
+    try:
+        result = extractor.extract(from_file)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        return
+    if output:
+        with open(output, "w") as f:
+            f.write(result)
+        click.echo(f"Profile written to {output}")
+    else:
+        click.echo(result)
+
+
+@cli.command("import")
+@click.option("--from", "from_file", required=True, help="SKILL.md file to import")
+@click.option("--output", default=None, help="Output path (default: stdout)")
+@click.pass_context
+def import_cmd(ctx, from_file, output):
+    """Import a Claude Code skill as a ContextLedger profile."""
+    from contextledger.skill.extractor import ClaudeSkillImporter
+    from contextledger.backends.llm.claude import ClaudeLLMClient
+    try:
+        llm = ClaudeLLMClient()
+    except RuntimeError as e:
+        click.echo(str(e), err=True)
+        return
+    importer = ClaudeSkillImporter(llm)
+    try:
+        result = importer.import_skill(from_file)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        return
+    if output:
+        with open(output, "w") as f:
+            f.write(result)
+        click.echo(f"Profile written to {output}")
+    else:
+        click.echo(result)
+
+
+@cli.command()
+@click.option("--port", default=7432, help="Port number")
+@click.option("--no-browser", is_flag=True, help="Don't open browser")
+@click.pass_context
+def editor(ctx, port, no_browser):
+    """Launch visual skill editor in browser."""
+    try:
+        from contextledger.editor.server import run_editor
+    except RuntimeError as e:
+        click.echo(str(e), err=True)
+        click.echo("Install: pip install fastapi uvicorn")
+        return
+    click.echo(f"Starting editor on http://localhost:{port}")
+    run_editor(port=port, no_browser=no_browser)
+
+
 # ---------------------------------------------------------------------------
 # Project subcommands (Phase 2)
 # ---------------------------------------------------------------------------

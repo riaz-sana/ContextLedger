@@ -1,0 +1,26 @@
+name: "ContextLedger Skill Validate"
+description: "Validates all declared skill profiles in project.yaml exist"
+
+inputs:
+  project-manifest:
+    description: "Path to the project manifest YAML file"
+    required: false
+    default: ".contextledger/project.yaml"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install contextledger pyyaml
+
+    - name: Validate skill profiles
+      shell: bash
+      env:
+        INPUT_PROJECT_MANIFEST: ${{ inputs.project-manifest }}
+      run: bash ${{ github.action_path }}/entrypoint.sh

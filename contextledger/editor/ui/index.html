@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ContextLedger Editor</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/cytoscape@3/dist/cytoscape.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; }
+.app { display: flex; flex-direction: column; height: 100vh; }
+.header { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+.header h1 { font-size: 18px; color: #58a6ff; }
+.tabs { display: flex; gap: 2px; }
+.tab { padding: 8px 16px; background: transparent; color: #8b949e; border: none; cursor: pointer; border-radius: 6px 6px 0 0; font-size: 14px; }
+.tab.active { background: #21262d; color: #f0f6fc; }
+.tab:hover { color: #f0f6fc; }
+.content { flex: 1; overflow: auto; padding: 20px; }
+.card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+.card h3 { color: #58a6ff; margin-bottom: 8px; font-size: 15px; }
+.card .meta { color: #8b949e; font-size: 13px; }
+.btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer; font-size: 13px; }
+.btn:hover { background: #30363d; }
+.btn-primary { background: #238636; border-color: #238636; color: #fff; }
+.btn-primary:hover { background: #2ea043; }
+.btn-danger { background: #da3633; border-color: #da3633; color: #fff; }
+.actions { display: flex; gap: 8px; margin-top: 10px; }
+#dag-canvas { width: 100%; height: 500px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; }
+.diff-section { padding: 10px; border-left: 3px solid #30363d; margin-bottom: 8px; }
+.diff-changed { border-color: #d29922; background: rgba(210,153,34,0.1); }
+.diff-added { border-color: #238636; background: rgba(35,134,54,0.1); }
+.diff-removed { border-color: #da3633; background: rgba(218,54,51,0.1); }
+.diff-unchanged { opacity: 0.5; }
+input, textarea, select { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px; border-radius: 6px; width: 100%; font-family: inherit; }
+textarea { min-height: 100px; font-family: monospace; font-size: 13px; }
+.query-box { display: flex; gap: 8px; margin-bottom: 16px; }
+.query-box input { flex: 1; }
+.result-item { padding: 8px 12px; border-bottom: 1px solid #21262d; font-size: 14px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.badge-extraction { background: #1f6feb; color: #fff; }
+.badge-reasoning { background: #d29922; color: #000; }
+.badge-synthesis { background: #238636; color: #fff; }
+.badge-filter { background: #8b949e; color: #000; }
+.empty { color: #8b949e; text-align: center; padding: 40px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.select-row { display: flex; gap: 8px; margin-bottom: 16px; align-items: center; }
+.select-row select { width: auto; min-width: 200px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const API = '';
+
+function App() {
+  const [tab, setTab] = useState('profiles');
+  return (
+    <div className="app">
+      <div className="header">
+        <h1>ContextLedger</h1>
+        <div className="tabs">
+          {['profiles','dag','diff','context'].map(t => (
+            <button key={t} className={`tab ${tab===t?'active':''}`} onClick={()=>setTab(t)}>
+              {t.charAt(0).toUpperCase()+t.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="content">
+        {tab==='profiles' && <ProfilesTab/>}
+        {tab==='dag' && <DagTab/>}
+        {tab==='diff' && <DiffTab/>}
+        {tab==='context' && <ContextTab/>}
+      </div>
+    </div>
+  );
+}
+
+function ProfilesTab() {
+  const [profiles, setProfiles] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
+
+  useEffect(() => {
+    fetch(`${API}/api/profiles`).then(r=>r.json()).then(d=>setProfiles(d.profiles||[]));
+  }, []);
+
+  const loadProfile = (name) => {
+    fetch(`${API}/api/profiles/${name}`).then(r=>r.json()).then(d=>{setDetail(d);setSelected(name);});
+  };
+
+  return (
+    <div>
+      <h2 style={{marginBottom:16,color:'#f0f6fc'}}>Skill Profiles</h2>
+      {profiles.length===0 && <div className="empty">No profiles found. Run `ctx new my-skill` to create one.</div>}
+      <div className="grid-2">
+        <div>
+          {profiles.map(p => (
+            <div key={p.name} className="card" onClick={()=>loadProfile(p.name)} style={{cursor:'pointer',borderColor:selected===p.name?'#58a6ff':'#30363d'}}>
+              <h3>{p.name}</h3>
+              <div className="meta">v{p.version} {p.parent ? `← ${p.parent}` : '(base)'}</div>
+            </div>
+          ))}
+        </div>
+        <div>
+          {detail && (
+            <div className="card">
+              <h3>{detail.name || selected}</h3>
+              <pre style={{fontSize:13,overflow:'auto',maxHeight:400}}>{JSON.stringify(detail,null,2)}</pre>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DagTab() {
+  const [profiles, setProfiles] = useState([]);
+  const [selected, setSelected] = useState('');
+  const cyRef = useRef(null);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    fetch(`${API}/api/profiles`).then(r=>r.json()).then(d=>{
+      const p = d.profiles||[];
+      setProfiles(p);
+      if(p.length>0) setSelected(p[0].name);
+    });
+  }, []);
+
+  useEffect(() => {
+    if(!selected || !containerRef.current) return;
+    fetch(`${API}/api/profiles/${selected}/dag`).then(r=>r.json()).then(d=>{
+      const colors = {extraction:'#1f6feb',reasoning:'#d29922',synthesis:'#238636',filter:'#8b949e'};
+      const elements = [
+        ...d.nodes.map(n=>({data:{id:n.id,label:n.label},style:{'background-color':colors[n.type]||'#8b949e'}})),
+        ...d.edges.map(e=>({data:{source:e.source,target:e.target}})),
+      ];
+      if(cyRef.current) cyRef.current.destroy();
+      cyRef.current = cytoscape({
+        container: containerRef.current,
+        elements,
+        style: [
+          {selector:'node',style:{'label':'data(label)','color':'#c9d1d9','text-valign':'center','font-size':'12px','width':120,'height':40,'shape':'roundrectangle'}},
+          {selector:'edge',style:{'width':2,'line-color':'#30363d','target-arrow-color':'#58a6ff','target-arrow-shape':'triangle','curve-style':'bezier'}},
+        ],
+        layout:{name:'breadthfirst',directed:true,padding:30},
+      });
+    });
+  }, [selected]);
+
+  return (
+    <div>
+      <div className="select-row">
+        <label>Profile:</label>
+        <select value={selected} onChange={e=>setSelected(e.target.value)}>
+          {profiles.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
+        </select>
+      </div>
+      <div id="dag-canvas" ref={containerRef}></div>
+      <div style={{marginTop:8,display:'flex',gap:16,fontSize:12}}>
+        <span><span className="badge badge-extraction">extraction</span></span>
+        <span><span className="badge badge-reasoning">reasoning</span></span>
+        <span><span className="badge badge-synthesis">synthesis</span></span>
+        <span><span className="badge badge-filter">filter</span></span>
+      </div>
+    </div>
+  );
+}
+
+function DiffTab() {
+  const [profiles, setProfiles] = useState([]);
+  const [a, setA] = useState('');
+  const [b, setB] = useState('');
+  const [diff, setDiff] = useState(null);
+
+  useEffect(() => {
+    fetch(`${API}/api/profiles`).then(r=>r.json()).then(d=>{
+      const p = d.profiles||[];
+      setProfiles(p);
+      if(p.length>=2){setA(p[0].name);setB(p[1].name);}
+    });
+  }, []);
+
+  const runDiff = () => {
+    if(a&&b) fetch(`${API}/api/diff/${a}/${b}`).then(r=>r.json()).then(setDiff);
+  };
+
+  return (
+    <div>
+      <div className="select-row">
+        <select value={a} onChange={e=>setA(e.target.value)}>
+          {profiles.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
+        </select>
+        <span style={{color:'#8b949e'}}>vs</span>
+        <select value={b} onChange={e=>setB(e.target.value)}>
+          {profiles.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
+        </select>
+        <button className="btn btn-primary" onClick={runDiff}>Compare</button>
+      </div>
+      {diff && diff.sections.map((s,i) => (
+        <div key={i} className={`diff-section diff-${s.status}`}>
+          <strong>{s.section}</strong> — <span style={{fontSize:13}}>{s.status}</span>
+          {s.status==='changed' && (
+            <div style={{marginTop:8,fontSize:12}}>
+              <div style={{marginBottom:4}}>A: <code>{JSON.stringify(s.value_a).slice(0,120)}</code></div>
+              <div>B: <code>{JSON.stringify(s.value_b).slice(0,120)}</code></div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ContextTab() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState(null);
+
+  const search = () => {
+    fetch(`${API}/api/status`).then(r=>r.json()).then(d=>{
+      setResults(d);
+    });
+  };
+
+  return (
+    <div>
+      <div className="query-box">
+        <input placeholder="Query context..." value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')search();}} />
+        <button className="btn btn-primary" onClick={search}>Search</button>
+      </div>
+      {results && (
+        <div className="card">
+          <h3>Registry Status</h3>
+          <div className="meta">Home: {results.ctx_home}</div>
+          <div className="meta">Total profiles: {results.total_profiles}</div>
+          <div style={{marginTop:8}}>
+            {(results.profiles||[]).map((p,i) => (
+              <div key={i} className="result-item">{p}</div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
