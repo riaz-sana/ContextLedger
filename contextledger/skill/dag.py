@@ -6,15 +6,100 @@ defined in profile.yaml.
 
 from __future__ import annotations
 
+import json
 from collections import deque
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 
 VALID_NODE_TYPES = {"extraction", "reasoning", "synthesis", "filter"}
 
 
+class NodeExecutor:
+    """Executes individual DAG nodes using an LLM client.
+
+    Each node type has a handler that builds a prompt from the node's
+    configuration and upstream outputs, calls the LLM, and parses the result.
+    """
+
+    def __init__(self, llm_client):
+        self.llm_client = llm_client
+
+    def execute(self, node: dict, inputs: dict, profile: dict) -> dict:
+        """Execute a single node, dispatching to the correct handler."""
+        handlers = {
+            "extraction": self._handle_extraction,
+            "reasoning": self._handle_reasoning,
+            "synthesis": self._handle_synthesis,
+            "filter": self._handle_filter,
+        }
+        handler = handlers.get(node["type"])
+        if not handler:
+            raise ValueError(f"Unknown node type: {node['type']}")
+        return handler(node, inputs, profile)
+
+    def _handle_extraction(self, node: dict, inputs: dict, profile: dict) -> dict:
+        entity_types = profile.get("extraction", {}).get("entities", [])
+        rules = profile.get("extraction", {}).get("rules", [])
+        raw_content = inputs.get("raw_content", "")
+        prompt = (
+            f"Extract entities of types {entity_types} from the following content.\n"
+            f"Rules: {rules}\n\n"
+            f"Content:\n{raw_content}\n\n"
+            f'Respond in JSON: {{"entities": [{{"type": ..., "value": ..., "confidence": 0-1}}]}}'
+        )
+        response = self.llm_client.complete(prompt, max_tokens=1000)
+        return self._parse_json(response, {"entities": []})
+
+    def _handle_reasoning(self, node: dict, inputs: dict, profile: dict) -> dict:
+        entities = inputs.get("entities", [])
+        graph_schema = profile.get("memory_schema", {})
+        prompt = (
+            f"Given these entities: {entities}\n"
+            f"And this graph schema: {graph_schema}\n\n"
+            f"Identify relationships between entities.\n"
+            f'Respond in JSON: {{"relationships": [{{"from": ..., "to": ..., "label": ...}}]}}'
+        )
+        response = self.llm_client.complete(prompt, max_tokens=1000)
+        return self._parse_json(response, {"relationships": []})
+
+    def _handle_synthesis(self, node: dict, inputs: dict, profile: dict) -> dict:
+        template_id = node.get("template")
+        templates = profile.get("synthesis", {}).get("templates", [])
+        template = next((t for t in templates if t["id"] == template_id), None)
+        if not template:
+            raise ValueError(f"Template '{template_id}' not found in profile")
+        prompt = template["prompt"].format(
+            entities=inputs.get("entities", []),
+            relationships=inputs.get("relationships", []),
+            source=inputs.get("source", "unknown"),
+        )
+        response = self.llm_client.complete(prompt, max_tokens=1500)
+        return self._parse_json(response, {"findings": []})
+
+    def _handle_filter(self, node: dict, inputs: dict, profile: dict) -> dict:
+        findings = inputs.get("findings", [])
+        threshold = node.get("confidence_threshold", 0.5)
+        filtered = [f for f in findings if f.get("confidence", 1.0) >= threshold]
+        return {"filtered_findings": filtered, "dropped": len(findings) - len(filtered)}
+
+    @staticmethod
+    def _parse_json(response: str, default: dict) -> dict:
+        try:
+            clean = response.strip().replace("```json", "").replace("```", "").strip()
+            return json.loads(clean)
+        except Exception:
+            return default
+
+
 class DAGExecutor:
-    """Executes a DAG of synthesis nodes in topological (dependency) order."""
+    """Executes a DAG of synthesis nodes in topological (dependency) order.
+
+    Accepts an optional ``node_executor`` for LLM-backed execution.
+    Without it, nodes produce stub output dicts (backward compatible).
+    """
+
+    def __init__(self, node_executor: Optional[NodeExecutor] = None):
+        self._node_executor = node_executor
 
     def topological_sort(self, dag: dict) -> list[str]:
         """Return node IDs in valid execution order using Kahn's algorithm.
@@ -71,6 +156,7 @@ class DAGExecutor:
         dag: dict,
         context: dict,
         on_node: Optional[Callable[[str], None]] = None,
+        profile: Optional[dict] = None,
     ) -> dict:
         """Execute all nodes in the DAG in topological order.
 
@@ -114,11 +200,21 @@ class DAGExecutor:
                 dep: outputs[dep] for dep in node.get("depends_on", [])
             }
 
-            outputs[node_id] = {
-                "node_id": node_id,
-                "type": node["type"],
-                "inputs": upstream_outputs,
-                "context": context,
-            }
+            if self._node_executor is not None and profile is not None:
+                # Flatten upstream outputs into a single input dict
+                merged_inputs = dict(context)
+                for dep_output in upstream_outputs.values():
+                    if isinstance(dep_output, dict):
+                        merged_inputs.update(dep_output)
+                outputs[node_id] = self._node_executor.execute(
+                    node, merged_inputs, profile
+                )
+            else:
+                outputs[node_id] = {
+                    "node_id": node_id,
+                    "type": node["type"],
+                    "inputs": upstream_outputs,
+                    "context": context,
+                }
 
         return outputs

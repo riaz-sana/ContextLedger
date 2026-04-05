@@ -1,11 +1,10 @@
 {
   "project": "ContextLedger",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "queue": [
     {
       "id": "TASK-001",
       "title": "Implement core data types",
-      "description": "Define MemoryUnit, SkillBundle, ProfileMetadata, ProfileDiff as dataclasses in core/types.py. MemoryUnit fields: id, content, unit_type, profile_name, embedding, tags, timestamp, parent_id, metadata. SkillBundle fields: name, version, profile_yaml, parent, tools, refs. ProfileMetadata fields: name, version, parent, created_at, updated_at. ProfileDiff fields: profile_a, profile_b, changed_sections, added_sections, removed_sections, conflict_tiers.",
       "phase": 1,
       "status": "complete",
       "test_file": "tests/core/test_types.py",
@@ -15,56 +14,42 @@
     {
       "id": "TASK-002",
       "title": "Define backend Protocol classes",
-      "description": "Write @runtime_checkable Protocol classes in core/protocols.py. StorageBackend: write, read, search, traverse, delete, list_by_profile. EmbeddingBackend: encode, encode_batch, similarity. RegistryBackend: list_profiles, get_profile, save_profile, fork_profile, list_versions, get_diff.",
       "phase": 1,
       "status": "complete",
       "test_file": "tests/core/test_protocols.py",
       "target_file": "contextledger/core/protocols.py",
-      "depends_on": [
-        "TASK-001"
-      ]
+      "depends_on": ["TASK-001"]
     },
     {
       "id": "TASK-003",
       "title": "Implement StubStorageBackend",
-      "description": "In-memory dict-backed StorageBackend stub. write() stores unit and returns ID. read() returns unit or None. search() returns subset by limit. traverse() follows parent_id links. delete() removes and returns bool. list_by_profile() filters by profile_name.",
       "phase": 1,
       "status": "complete",
       "test_file": "tests/backends/storage/test_stub.py",
       "target_file": "contextledger/backends/storage/stub.py",
-      "depends_on": [
-        "TASK-002"
-      ]
+      "depends_on": ["TASK-002"]
     },
     {
       "id": "TASK-004",
       "title": "Implement StubEmbeddingBackend",
-      "description": "Deterministic mock EmbeddingBackend. encode() returns fixed-length float vector derived from input hash. encode_batch() calls encode per item. similarity() computes cosine similarity. Must satisfy: identical inputs produce identical embeddings, self-similarity is 1.0.",
       "phase": 1,
       "status": "complete",
       "test_file": "tests/backends/embedding/test_stub.py",
       "target_file": "contextledger/backends/embedding/stub.py",
-      "depends_on": [
-        "TASK-002"
-      ]
+      "depends_on": ["TASK-002"]
     },
     {
       "id": "TASK-005",
       "title": "Implement StubRegistryBackend",
-      "description": "In-memory dict-backed RegistryBackend stub. save_profile() stores bundle keyed by name+version. get_profile() retrieves by name and optional version. fork_profile() copies parent bundle with new name and parent reference. list_versions() returns all version strings. get_diff() returns a ProfileDiff.",
       "phase": 1,
       "status": "complete",
       "test_file": "tests/backends/registry/test_stub.py",
       "target_file": "contextledger/backends/registry/stub.py",
-      "depends_on": [
-        "TASK-001",
-        "TASK-002"
-      ]
+      "depends_on": ["TASK-001", "TASK-002"]
     },
     {
       "id": "TASK-006",
       "title": "Implement lossless three-pass trimmer",
-      "description": "Build Trimmer class in memory/trimmer.py. Pass 1: strip_tool_output() removes [TOOL_OUTPUT] blocks. Pass 2: strip_base64() removes data:image/...;base64,... content, replaces with placeholder. Pass 3: strip_metadata() normalizes whitespace and removes [META:] markers. Pipeline: trim_session() runs all three passes on each assistant message, preserves user messages verbatim, preserves message count and order, reports reduction_pct. Respects configurable threshold \u00e2\u20ac\u201d skip trimming if overhead is below threshold.",
       "phase": 2,
       "status": "complete",
       "test_file": "tests/memory/test_trimmer.py",
@@ -74,72 +59,51 @@
     {
       "id": "TASK-007",
       "title": "Implement CMV DAG engine",
-      "description": "Build CMVEngine class in memory/cmv.py. snapshot(session_log) creates a versioned node with messages, timestamp, parent_id; first snapshot has parent_id=None, subsequent snapshots chain to previous. branch(snapshot_id, orientation=None) creates a new node referencing the parent snapshot; multiple branches from one snapshot form a DAG; raises on nonexistent snapshot_id. trim(snapshot_id) delegates to Trimmer and returns a new trimmed node with smaller size. DAG queries: get_node(id), list_nodes(), get_history(id) returns ancestor chain, get_children(id) returns immediate children, get_size(id) returns content size.",
       "phase": 2,
       "status": "complete",
       "test_file": "tests/memory/test_cmv.py",
       "target_file": "contextledger/memory/cmv.py",
-      "depends_on": [
-        "TASK-001",
-        "TASK-006"
-      ]
+      "depends_on": ["TASK-001", "TASK-006"]
     },
     {
       "id": "TASK-008",
       "title": "Implement three-tier memory router",
-      "description": "Build in memory/tiers.py: TierRouter.route(query) classifies query intent and returns list of tier names ('immediate', 'synthesis', 'archival'). ImmediateTier(max_turns) with add_turn(), get_turns(), query(), clear(); evicts oldest when exceeding max_turns. SynthesisTier(window_days) with add_finding(), get_findings(), query(); expires findings older than window_days. ArchivalTier with store(), search(query_embedding, limit), count(); never expires, supports semantic similarity search.",
       "phase": 2,
       "status": "complete",
       "test_file": "tests/memory/test_tiers.py",
       "target_file": "contextledger/memory/tiers.py",
-      "depends_on": [
-        "TASK-001",
-        "TASK-003",
-        "TASK-004"
-      ]
+      "depends_on": ["TASK-001", "TASK-003", "TASK-004"]
     },
     {
       "id": "TASK-009",
       "title": "Implement SQLite StorageBackend",
-      "description": "Build SQLiteStorageBackend(db_path) in backends/storage/sqlite.py satisfying StorageBackend protocol. Auto-creates tables on init. write() inserts with serialized embedding. read() deserializes. search() computes cosine similarity against stored embeddings. traverse() follows parent_id chain to given depth. delete() removes row, returns False if not found. list_by_profile() filters by profile_name. Data must persist across instances with the same db_path.",
       "phase": 3,
       "status": "complete",
       "test_file": "tests/backends/storage/test_sqlite.py",
       "target_file": "contextledger/backends/storage/sqlite.py",
-      "depends_on": [
-        "TASK-001",
-        "TASK-002"
-      ]
+      "depends_on": ["TASK-001", "TASK-002"]
     },
     {
       "id": "TASK-010",
       "title": "Implement Jina EmbeddingBackend",
-      "description": "Build JinaEmbeddingBackend in backends/embedding/jina.py using jina-embeddings-v3. encode() returns embedding vector. encode_batch() encodes list efficiently. similarity() computes cosine similarity. Must produce semantically meaningful vectors (similar texts closer than unrelated texts). Tests skipped until jina-embeddings is installed.",
       "phase": 3,
       "status": "complete",
       "test_file": "tests/backends/embedding/test_jina.py",
       "target_file": "contextledger/backends/embedding/jina.py",
-      "depends_on": [
-        "TASK-002"
-      ]
+      "depends_on": ["TASK-002"]
     },
     {
       "id": "TASK-011",
       "title": "Implement Git local RegistryBackend",
-      "description": "Build GitLocalRegistryBackend(repo_path) in backends/registry/git_local.py using gitpython. save_profile() writes skill directory bundle (skills/<name>/profile.yaml) and commits. get_profile() reads from working tree. fork_profile() creates a git branch and child bundle with parent reference. list_versions() returns commit history for a profile. get_diff() diffs two profile directories.",
       "phase": 3,
       "status": "complete",
       "test_file": "tests/backends/registry/test_git_local.py",
       "target_file": "contextledger/backends/registry/git_local.py",
-      "depends_on": [
-        "TASK-001",
-        "TASK-002"
-      ]
+      "depends_on": ["TASK-001", "TASK-002"]
     },
     {
       "id": "TASK-012",
       "title": "Implement profile YAML parser and validator",
-      "description": "Build ProfileParser in skill/parser.py. parse(yaml_string) returns structured dict with name, version, parent, extraction (entities, sources, rules), synthesis (dag with nodes, templates), memory_schema (graph_nodes, graph_edges), session_context (mode, cmv_enabled, trim_threshold, memory_tiers). validate(profile) rejects: missing name/version, cyclic DAG, invalid node types (only extraction/reasoning/synthesis/filter), dangling dependency references, confidence_threshold outside 0-1. Base profiles have parent=None.",
       "phase": 4,
       "status": "complete",
       "test_file": "tests/skill/test_parser.py",
@@ -149,43 +113,33 @@
     {
       "id": "TASK-013",
       "title": "Implement DAG executor",
-      "description": "Build DAGExecutor in skill/dag.py. topological_sort(dag) returns node IDs in valid execution order; raises ValueError on cycles. execute(dag, context, on_node=None) runs nodes in topological order, passes outputs from upstream nodes as inputs to dependents, returns dict of {node_id: output}. Handles: single root, linear chain, parallel roots, diamond dependencies, empty DAG. Rejects invalid node types.",
       "phase": 4,
       "status": "complete",
       "test_file": "tests/skill/test_dag.py",
       "target_file": "contextledger/skill/dag.py",
-      "depends_on": [
-        "TASK-012"
-      ]
+      "depends_on": ["TASK-012"]
     },
     {
       "id": "TASK-014",
       "title": "Implement fork and inheritance resolution",
-      "description": "Build ForkManager in skill/fork.py. fork(parent, new_name) creates a child profile with parent reference, auto-generated version, no copied tools/refs (inheritance by reference only, copy-on-write). resolve(profile, registry) walks the parent chain via registry lookups, merges sections with child overrides taking precedence over parent defaults. Handles: base profiles (no parent), single-level forks, deep chains (grandparent->parent->child). Raises on missing parent in registry.",
       "phase": 4,
       "status": "complete",
       "test_file": "tests/skill/test_fork.py",
       "target_file": "contextledger/skill/fork.py",
-      "depends_on": [
-        "TASK-012"
-      ]
+      "depends_on": ["TASK-012"]
     },
     {
       "id": "TASK-015",
       "title": "Implement interactive profile wizard",
-      "description": "Build wizard in skill/wizard.py. Prompts user for data source, entity types, domain. Generates a valid profile.yaml from responses. Supports template fork path (ctx fork base-research-skill my-skill).",
       "phase": 4,
       "status": "complete",
       "test_file": null,
       "target_file": "contextledger/skill/wizard.py",
-      "depends_on": [
-        "TASK-012"
-      ]
+      "depends_on": ["TASK-012"]
     },
     {
       "id": "TASK-016",
       "title": "Implement merge scoring module",
-      "description": "Build Scorer in merge/scorer.py. precision(extracted) counts correct/total, returns 0.0 for empty input. recall(expected, found) counts found-in-expected/total-expected. novelty(baseline, new_findings) counts items not in baseline / total new. compare(parent_outputs, fork_outputs, expected) returns structured report with per-version precision/recall and overall winner/recommendation.",
       "phase": 7,
       "status": "complete",
       "test_file": "tests/merge/test_scorer.py",
@@ -195,129 +149,340 @@
     {
       "id": "TASK-017",
       "title": "Implement conflict resolution router",
-      "description": "Build ConflictResolver in merge/resolver.py. detect_conflicts(parent_changes, fork_changes) finds overlapping section keys. classify(section, parent_value, fork_value, has_dag_dependency) returns tier 1 (non-overlapping or identical values), tier 2 (same section different logic, no DAG dep), or tier 3 (conflicting with DAG dependency). merge(parent, fork) auto-merges tier 1, returns evaluation_needed for tier 2, blocks for tier 3. HARD RULE: tier 3 must NEVER auto-merge.",
       "phase": 7,
       "status": "complete",
       "test_file": "tests/merge/test_resolver.py",
       "target_file": "contextledger/merge/resolver.py",
-      "depends_on": [
-        "TASK-012"
-      ]
+      "depends_on": ["TASK-012"]
     },
     {
       "id": "TASK-018",
       "title": "Implement tier 2 evaluation harness",
-      "description": "Build Evaluator and FindingsStore in merge/evaluator.py. FindingsStore: add(profile, finding), get_by_profile(profile, limit=None) with provenance tracking. Evaluator.evaluate(findings, parent_template, fork_template, sample_size=50) runs both templates on same findings, scores via Scorer, returns report with parent_score, fork_score, metrics, recommendation (merge/reject/parallel). Returns inconclusive for empty findings. Respects sample_size.",
       "phase": 7,
       "status": "complete",
       "test_file": "tests/merge/test_evaluator.py",
       "target_file": "contextledger/merge/evaluator.py",
-      "depends_on": [
-        "TASK-016",
-        "TASK-017"
-      ]
+      "depends_on": ["TASK-016", "TASK-017"]
     },
     {
       "id": "TASK-019",
       "title": "Implement MCP server",
-      "description": "Build ContextLedgerMCP in mcp/server.py. ctx_ingest(session_log) runs signal extraction, stores to memory, returns {status, signals_extracted}. ctx_query(query, profile=None) routes through TierRouter, returns list of results. ctx_grep(pattern) searches findings by pattern. ctx_status() returns {active_profile, sessions_ingested, total_units}. skill_checkout(name, version=None) switches active profile. Must work without any profile configured (second brain mode).",
       "phase": 5,
       "status": "complete",
       "test_file": "tests/mcp/test_server.py",
       "target_file": "contextledger/mcp/server.py",
-      "depends_on": [
-        "TASK-006",
-        "TASK-007",
-        "TASK-008"
-      ]
+      "depends_on": ["TASK-006", "TASK-007", "TASK-008"]
     },
     {
       "id": "TASK-020",
       "title": "Implement CLI commands",
-      "description": "Build Click CLI in cli/main.py with ctx entry point. Commands: init (create registry, uses CTX_HOME env var), new <name> (wizard-driven profile creation), list (list profiles), checkout <name>[@version], fork <parent> <child>, diff <a> <b>, merge <fork> <parent>, query <text>, status, connect <interface>. Uses CliRunner for testing.",
       "phase": 6,
       "status": "complete",
       "test_file": "tests/cli/test_main.py",
       "target_file": "contextledger/cli/main.py",
-      "depends_on": [
-        "TASK-014",
-        "TASK-017",
-        "TASK-019"
-      ]
+      "depends_on": ["TASK-014", "TASK-017", "TASK-019"]
     },
     {
       "id": "TASK-021",
       "title": "Package for pip install",
-      "description": "Finalize pyproject.toml with all runtime dependencies (click, pyyaml, gitpython, jina-embeddings). Ensure ctx entry point works after pip install. Add [dev] extras (pytest, pytest-cov).",
       "phase": 6,
       "status": "complete",
       "test_file": null,
       "target_file": "pyproject.toml",
-      "depends_on": [
-        "TASK-020"
-      ]
+      "depends_on": ["TASK-020"]
     },
     {
       "id": "TASK-022",
       "title": "Integration test: second brain mode",
-      "description": "End-to-end test of zero-config mode: instantiate ContextLedgerMCP with no profile, ingest multiple sessions, query across all sessions, verify CMV trimming on heavy sessions, verify tier routing for different query intents. Must work without any skill profile configured.",
       "phase": 5,
       "status": "complete",
       "test_file": "tests/integration/test_second_brain.py",
       "target_file": null,
-      "depends_on": [
-        "TASK-019"
-      ]
+      "depends_on": ["TASK-019"]
     },
     {
       "id": "TASK-023",
       "title": "Integration test: skill versioning mode",
-      "description": "End-to-end test of full lifecycle: parse profile -> validate -> fork -> resolve inheritance -> diff -> merge with tier 1 auto-merge, tier 2 evaluation trigger, tier 3 block. Verify overrides take precedence, inherited sections pass through, missing parents raise errors.",
       "phase": 7,
       "status": "complete",
       "test_file": "tests/integration/test_skill_versioning.py",
       "target_file": null,
-      "depends_on": [
-        "TASK-014",
-        "TASK-017",
-        "TASK-018"
-      ]
+      "depends_on": ["TASK-014", "TASK-017", "TASK-018"]
     },
     {
       "id": "TASK-024",
       "title": "Implement Postgres+pgvector StorageBackend",
-      "description": "Build PostgresStorageBackend satisfying StorageBackend protocol. Use pgvector extension for embedding similarity search. Connection via DATABASE_URL env var.",
       "phase": 8,
       "status": "complete",
       "test_file": null,
       "target_file": "contextledger/backends/storage/postgres.py",
-      "depends_on": [
-        "TASK-002"
-      ]
+      "depends_on": ["TASK-002"]
     },
     {
       "id": "TASK-025",
       "title": "Implement OpenAI EmbeddingBackend",
-      "description": "Build OpenAIEmbeddingBackend using text-embedding-3. Implements encode, encode_batch, similarity. API key via OPENAI_API_KEY env var.",
       "phase": 8,
       "status": "complete",
       "test_file": null,
       "target_file": "contextledger/backends/embedding/openai.py",
-      "depends_on": [
-        "TASK-002"
-      ]
+      "depends_on": ["TASK-002"]
     },
     {
       "id": "TASK-026",
       "title": "Implement GitHub remote RegistryBackend",
-      "description": "Build GitHubRegistryBackend using GitHub API. Push/pull skill bundles to remote repo. Auth via GITHUB_TOKEN env var.",
       "phase": 8,
       "status": "complete",
       "test_file": null,
       "target_file": "contextledger/backends/registry/github.py",
-      "depends_on": [
-        "TASK-002"
-      ]
+      "depends_on": ["TASK-002"]
+    },
+    {
+      "id": "TASK-027",
+      "title": "Add LLMClient protocol and stub/Claude backends",
+      "description": "Add LLMClient protocol to core/protocols.py. Implement StubLLMClient (deterministic mock) and ClaudeLLMClient (Anthropic API). Stub routes prompts by keyword to return entities/relationships/findings/evaluation JSON.",
+      "phase": "remaining-work",
+      "status": "complete",
+      "test_file": "tests/backends/llm/test_stub.py",
+      "target_files": [
+        "contextledger/core/protocols.py",
+        "contextledger/backends/llm/stub.py",
+        "contextledger/backends/llm/claude.py"
+      ],
+      "depends_on": ["TASK-002"]
+    },
+    {
+      "id": "TASK-028",
+      "title": "Wire LLM into DAG node handlers (NodeExecutor)",
+      "description": "Add NodeExecutor class to skill/dag.py with handlers for extraction, reasoning, synthesis, and filter node types. Each handler builds an LLM prompt from node config + upstream outputs, calls LLMClient.complete(), parses JSON response. DAGExecutor accepts optional NodeExecutor and profile for LLM-backed execution, falls back to stub dicts without them.",
+      "phase": "remaining-work",
+      "status": "complete",
+      "test_file": "tests/skill/test_node_executor.py",
+      "target_file": "contextledger/skill/dag.py",
+      "depends_on": ["TASK-013", "TASK-027"]
+    },
+    {
+      "id": "TASK-029",
+      "title": "Wire LLM into Tier 2 evaluation (evaluator + scorer + resolver)",
+      "description": "Add Evaluator._run_template() using real NodeExecutor+LLM. Add Evaluator.evaluate_with_llm() for full LLM-backed evaluation. Add Scorer.score_with_llm_judge() for LLM-as-judge comparative scoring. Add ConflictResolver.evaluate_tier2() that wires evaluator+scorer for Tier 2 conflicts.",
+      "phase": "remaining-work",
+      "status": "complete",
+      "test_file": "tests/merge/test_evaluator_real.py",
+      "target_files": [
+        "contextledger/merge/evaluator.py",
+        "contextledger/merge/scorer.py",
+        "contextledger/merge/resolver.py"
+      ],
+      "depends_on": ["TASK-027", "TASK-028", "TASK-016", "TASK-017", "TASK-018"]
+    },
+    {
+      "id": "TASK-030",
+      "title": "Implement project manifest parser (ManifestParser + ManifestLocator)",
+      "description": "Parse and validate project.yaml with name, skills, routes (directory/keyword/file_pattern conditions), default_skill, fusion_enabled. ManifestLocator walks up directory tree to find .contextledger/project.yaml. Supports to_yaml() for roundtrip serialization.",
+      "phase": "phase2",
+      "status": "complete",
+      "test_file": "tests/project/test_manifest.py",
+      "target_file": "contextledger/project/manifest.py",
+      "depends_on": ["TASK-001"]
+    },
+    {
+      "id": "TASK-031",
+      "title": "Implement skill router (SkillRouter)",
+      "description": "Route queries to skills via directory match (most specific wins), file pattern match, keyword match (most keywords wins), default skill, or first declared skill. Fallback chain: directory > file_pattern > keyword > default > first. route_all() returns all skills for cross-skill queries.",
+      "phase": "phase2",
+      "status": "complete",
+      "test_file": "tests/project/test_router.py",
+      "target_file": "contextledger/project/router.py",
+      "depends_on": ["TASK-030"]
+    },
+    {
+      "id": "TASK-032",
+      "title": "Implement context fusion (ContextFuser)",
+      "description": "Deduplicate results from multiple skills by content (first 200 chars as key). Annotate each result with source_skills list and cross_skill boolean. Sort active skill results first. Returns MultiSkillQueryResult with fused_results and results_by_skill.",
+      "phase": "phase2",
+      "status": "complete",
+      "test_file": "tests/project/test_fusion.py",
+      "target_file": "contextledger/project/fusion.py",
+      "depends_on": ["TASK-001"]
+    },
+    {
+      "id": "TASK-033",
+      "title": "Implement project manager (ProjectManager)",
+      "description": "Top-level orchestrator: loads manifest, routes via SkillRouter, fuses via ContextFuser. query_all() queries every skill and fuses results. query_routed() queries only the auto-selected skill. Explicit --profile overrides all routing. Gracefully handles missing memory system.",
+      "phase": "phase2",
+      "status": "complete",
+      "test_file": "tests/project/test_manager.py",
+      "target_file": "contextledger/project/manager.py",
+      "depends_on": ["TASK-030", "TASK-031", "TASK-032"]
+    },
+    {
+      "id": "TASK-034",
+      "title": "Integration test: multi-skill project mode",
+      "description": "End-to-end test with GenOpt-style project structure. Verifies directory routing to correct skill, keyword routing at project root, cross-skill query across all skills, content deduplication with attribution, explicit profile override, and default skill fallback.",
+      "phase": "phase2",
+      "status": "complete",
+      "test_file": "tests/integration/test_multi_skill_project.py",
+      "target_file": null,
+      "depends_on": ["TASK-030", "TASK-031", "TASK-032", "TASK-033"]
+    },
+    {
+      "id": "TASK-035",
+      "title": "Implement CLI project subcommands",
+      "description": "Add ctx project group with init, status, query, route, add-skill, remove-skill subcommands. init creates .contextledger/project.yaml with optional auto-generated routes. query supports --all and --profile flags. route is a dry-run debug tool.",
+      "phase": "phase2",
+      "status": "complete",
+      "test_file": "tests/cli/test_project_commands.py",
+      "target_file": "contextledger/cli/main.py",
+      "depends_on": ["TASK-033"]
+    },
+    {
+      "id": "TASK-036",
+      "title": "Update MCP server with project tools",
+      "description": "Add ctx_project_query(query, mode, current_dir, file_path, profile, limit) and ctx_project_status() tools. project_query supports routed and all modes. project_status returns manifest info.",
+      "phase": "phase2",
+      "status": "complete",
+      "test_file": "tests/mcp/test_server.py",
+      "target_file": "contextledger/mcp/server.py",
+      "depends_on": ["TASK-019", "TASK-033"]
+    },
+    {
+      "id": "TASK-037",
+      "title": "Add Phase 2 data types",
+      "description": "Add RoutingStrategy, SkillRoute, ProjectManifest, and MultiSkillQueryResult to core/types.py. These support multi-skill project routing, manifest configuration, and cross-skill query results.",
+      "phase": "phase2",
+      "status": "complete",
+      "test_file": "tests/core/test_types.py",
+      "target_file": "contextledger/core/types.py",
+      "depends_on": ["TASK-001"]
+    },
+    {
+      "id": "TASK-038",
+      "title": "README corrections (6 targeted fixes)",
+      "description": "Apply 6 factual corrections to README.md from contextledger-remaining-work.md Part 3. Fix 1: Replace domain-specific opening problem statement with generic workflow fork/merge description and domain-agnostic use cases. Fix 2: Replace vague 'semantic conflict resolution' claim with precise tier-based description. Fix 3: Replace 'works for any workflow' with concrete profile-based description. Fix 4: Expand 'semantic understanding on Git' in Key Design Decisions with 3 concrete mechanisms (section-aware diffing, DAG dependency analysis, Tier 2 evaluation). Fix 5: Split conflict resolution status into separate tier 1/2/3 rows with accurate readiness indicators. Fix 6: Update GitHub repo description (manual on GitHub.com, not code).",
+      "phase": "remaining-work",
+      "status": "not_started",
+      "test_file": null,
+      "target_file": "README.md",
+      "depends_on": []
+    },
+    {
+      "id": "TASK-039",
+      "title": "README multi-skill project section",
+      "description": "Add 'Mode 3: Multi-Skill Projects' section to README.md after 'Mode 2: Second Brain', documenting Phase 2 functionality. Include: project manifest setup (ctx project init), project.yaml example with skills/routes/fusion config, query commands (auto-routed, --all, --profile override, route dry-run, project status), guidance on when to use multi-skill vs single-skill.",
+      "phase": "remaining-work",
+      "status": "not_started",
+      "test_file": null,
+      "target_file": "README.md",
+      "depends_on": []
+    },
+    {
+      "id": "TASK-040",
+      "title": "Update README opening per positioning doc",
+      "description": "Replace current README opening (down to '## The Problem') with tightened version from contextledger-positioning.md Part 1. Lead with problem statement, pip install, then Skill Versioning / Second Brain / Multi-Skill Projects sections with concrete CLI examples. Add 'What this is not' footer.",
+      "phase": "remaining-work",
+      "status": "not_started",
+      "test_file": null,
+      "target_file": "README.md",
+      "depends_on": []
+    },
+    {
+      "id": "TASK-041",
+      "title": "Python function extractor (Phase 3 Feature 1A)",
+      "description": "Build PythonExtractor in skill/extractor.py. Reads a Python file via ast.parse, identifies candidate functions (names containing extract/parse/analyse/synthesise/filter/clean/validate, or returning dicts with findings/entities/results keys). Maps candidates to DAG node types via name inference. Infers inter-function dependencies from call graph. Generates a valid profile.yaml stub with extraction entities, synthesis DAG nodes, and REVIEW comments for user to fill in. No LLM dependency — pure AST analysis.",
+      "phase": 3,
+      "status": "not_started",
+      "test_file": "tests/skill/test_extractor.py",
+      "target_file": "contextledger/skill/extractor.py",
+      "depends_on": []
+    },
+    {
+      "id": "TASK-042",
+      "title": "Claude Code skill importer (Phase 3 Feature 1B)",
+      "description": "Build ClaudeSkillImporter in skill/extractor.py. Reads an existing .claude/skills/SKILL.md file, uses LLMClient to infer domain/entities/sources from content, generates a ContextLedger profile.yaml that wraps the SKILL.md as a reference document in refs/. Requires LLMClient (protocol exists, ClaudeLLMClient and StubLLMClient already implemented).",
+      "phase": 3,
+      "status": "not_started",
+      "test_file": "tests/skill/test_extractor.py",
+      "target_file": "contextledger/skill/extractor.py",
+      "depends_on": ["TASK-041"]
+    },
+    {
+      "id": "TASK-043",
+      "title": "Example-based skill creator (Phase 3 Feature 1C)",
+      "description": "Build ExampleBasedCreator in skill/extractor.py. User provides 3-5 JSON examples of {session_excerpt, finding} pairs. Uses LLMClient with few-shot prompting to infer extraction rules from examples. Generates extraction.rules section of profile.yaml. Requires minimum 3 examples, raises on fewer. Requires LLMClient.",
+      "phase": 3,
+      "status": "not_started",
+      "test_file": "tests/skill/test_extractor.py",
+      "target_file": "contextledger/skill/extractor.py",
+      "depends_on": ["TASK-041"]
+    },
+    {
+      "id": "TASK-044",
+      "title": "Extractor CLI commands",
+      "description": "Add CLI commands to cli/main.py for the three extractors: ctx extract --from <file> --output <path> (Python extractor), ctx import --from <skill_md> --output <path> (Claude skill importer), extend ctx new with --from-examples <json_file> option (example-based creator). All commands write to stdout or --output file.",
+      "phase": 3,
+      "status": "not_started",
+      "test_file": "tests/cli/test_main.py",
+      "target_file": "contextledger/cli/main.py",
+      "depends_on": ["TASK-041", "TASK-042", "TASK-043"]
+    },
+    {
+      "id": "TASK-045",
+      "title": "LangChain callback handler (Phase 3 Feature 5)",
+      "description": "Build ContextLedgerCallbackHandler in integrations/langchain_handler.py. Extends langchain.callbacks.base.BaseCallbackHandler. On on_llm_start: captures prompt as user message. On on_llm_end: captures response as assistant message. On on_chain_end: ingests accumulated session via ContextLedgerMCP.ctx_ingest(). Constructor accepts optional profile name. Generates unique session_id per chain run. LangChain is an optional dependency (import guarded).",
+      "phase": 3,
+      "status": "not_started",
+      "test_file": "tests/integrations/test_langchain_handler.py",
+      "target_file": "contextledger/integrations/langchain_handler.py",
+      "depends_on": []
+    },
+    {
+      "id": "TASK-046",
+      "title": "Visual editor — FastAPI backend (Phase 3 Feature 2 backend)",
+      "description": "Build editor server in editor/server.py using FastAPI. Endpoints: GET /api/profiles (list all), GET /api/profiles/{name} (get parsed YAML), POST /api/profiles/{name} (save via RegistryBackend), GET /api/profiles/{name}/dag (nodes+edges for visualization), GET /api/diff/{a}/{b} (section-by-section diff), POST /api/merge/{fork}/{parent} (trigger merge with tier result), GET /api/status (registry stats). CLI command: ctx editor [--port 7432] [--no-browser]. All writes go through existing ProfileParser and RegistryBackend. FastAPI is an optional dependency.",
+      "phase": 3,
+      "status": "not_started",
+      "test_file": "tests/editor/test_server.py",
+      "target_file": "contextledger/editor/server.py",
+      "depends_on": []
+    },
+    {
+      "id": "TASK-047",
+      "title": "Visual editor — single-file React UI (Phase 3 Feature 2 frontend)",
+      "description": "Build single index.html in editor/ui/ served by FastAPI. Uses React and Cytoscape.js loaded from CDN (no npm build step). Four tabs: Profiles (list/edit/fork/compare), DAG Editor (visual drag-and-drop with colored node types), Diff View (side-by-side section comparison with merge buttons), Context Browser (query box with three-tier memory results). All state managed via API calls to the FastAPI backend.",
+      "phase": 3,
+      "status": "not_started",
+      "test_file": null,
+      "target_file": "contextledger/editor/ui/index.html",
+      "depends_on": ["TASK-046"]
+    },
+    {
+      "id": "TASK-048",
+      "title": "VS Code extension (Phase 3 Feature 3)",
+      "description": "Create vscode-contextledger/ directory with package.json, tsconfig.json. Implement ctxClient.ts that shells out to ctx CLI via child_process. Implement extension.ts with activation and command registration. Commands: ContextLedger: Query, Switch Profile, Ingest Current Session, Show Status. Sidebar tree view showing active profile and recent findings. Status bar item showing active skill. Auto-routing on file open via ctx project route --file.",
+      "phase": 3,
+      "status": "not_started",
+      "test_file": null,
+      "target_file": "vscode-contextledger/src/extension.ts",
+      "depends_on": []
+    },
+    {
+      "id": "TASK-049",
+      "title": "GitHub Actions — skill-diff-action (Phase 3 Feature 4A)",
+      "description": "Create GitHub Action that runs on PRs modifying profile.yaml files. Auto-detects changed profiles, runs ctx diff on each, posts structured PR comment with section-by-section diff. Includes Tier 2 precision/recall/novelty scores if evaluation data exists. Fails the check if Tier 3 conflicts are present (blocks merge). Requires ANTHROPIC_API_KEY secret for Tier 2.",
+      "phase": 3,
+      "status": "not_started",
+      "test_file": null,
+      "target_file": "actions/skill-diff/action.yml",
+      "depends_on": []
+    },
+    {
+      "id": "TASK-050",
+      "title": "GitHub Actions — skill-validate-action (Phase 3 Feature 4B)",
+      "description": "Create GitHub Action that validates all declared skill profiles in project.yaml exist in the registry. Takes project-manifest input pointing to .contextledger/project.yaml. Fails if any declared skill is missing.",
+      "phase": 3,
+      "status": "not_started",
+      "test_file": null,
+      "target_file": "actions/skill-validate/action.yml",
+      "depends_on": []
     }
   ]
 }

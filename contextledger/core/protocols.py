@@ -82,3 +82,12 @@ class RegistryBackend(Protocol):
     def get_diff(self, name_a: str, name_b: str) -> Any:
         """Compute a semantic diff between two profiles."""
         ...
+
+
+@runtime_checkable
+class LLMClient(Protocol):
+    """Protocol for LLM completion requests."""
+
+    def complete(self, prompt: str, max_tokens: int = 1000) -> str:
+        """Send a completion request. Returns response text."""
+        ...

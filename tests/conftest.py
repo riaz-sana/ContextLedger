@@ -208,3 +208,11 @@ def tmp_git_repo(tmp_path):
 def tmp_db_path(tmp_path):
     """Provides a temporary path for SQLite database."""
     return tmp_path / "test_contextledger.db"
+
+
+@pytest.fixture
+def mcp_server():
+    """ContextLedgerMCP with stub embedding backend for testing."""
+    from contextledger.backends.embedding.stub import StubEmbeddingBackend
+    from contextledger.mcp.server import ContextLedgerMCP
+    return ContextLedgerMCP(embedding_backend=StubEmbeddingBackend())

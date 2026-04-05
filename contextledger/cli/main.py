@@ -181,8 +181,9 @@ def merge(ctx, fork_name, parent_name):
 def query(ctx, text):
     """Query context."""
     from contextledger.mcp.server import ContextLedgerMCP
+    from contextledger.backends.embedding.jina import JinaEmbeddingBackend
 
-    server = ContextLedgerMCP()
+    server = ContextLedgerMCP(embedding_backend=JinaEmbeddingBackend())
     results = server.ctx_query(text)
     for r in results:
         click.echo(f"  - {r}")
@@ -220,3 +221,189 @@ def status(ctx):
 def connect(ctx, interface):
     """Connect to an AI interface."""
     click.echo(f"Connected to {interface}")
+
+
+# ---------------------------------------------------------------------------
+# Project subcommands (Phase 2)
+# ---------------------------------------------------------------------------
+
+@cli.group()
+@click.pass_context
+def project(ctx):
+    """Multi-skill project commands."""
+    pass
+
+
+@project.command("init")
+@click.pass_context
+def project_init(ctx):
+    """Initialize a multi-skill project."""
+    home = ctx.obj["CTX_HOME"]
+    project_dir = os.path.join(os.getcwd(), ".contextledger")
+    os.makedirs(project_dir, exist_ok=True)
+
+    name = click.prompt("Project name", default=os.path.basename(os.getcwd()))
+    skills_input = click.prompt("Skills (comma-separated)", default="default-skill")
+    skills = [s.strip() for s in skills_input.split(",") if s.strip()]
+    default = click.prompt("Default skill", default=skills[0] if skills else "default-skill")
+
+    import yaml
+    manifest = {
+        "name": name,
+        "version": "1.0.0",
+        "skills": skills,
+        "default_skill": default,
+        "fusion_enabled": True,
+        "routes": [],
+    }
+
+    auto_routes = click.confirm("Auto-generate routes from skill names?", default=True)
+    if auto_routes:
+        for skill in skills:
+            dir_name = skill.replace("-skill", "").replace("_skill", "")
+            manifest["routes"].append({
+                "skill": skill,
+                "directories": [f"{dir_name}/"],
+                "keywords": [dir_name],
+            })
+
+    manifest_path = os.path.join(project_dir, "project.yaml")
+    with open(manifest_path, "w") as f:
+        yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
+    click.echo(f"Project initialized: {manifest_path}")
+
+
+@project.command("status")
+@click.pass_context
+def project_status(ctx):
+    """Show project status."""
+    from contextledger.project.manager import ProjectManager
+    mgr = ProjectManager()
+    try:
+        manifest = mgr.load()
+    except FileNotFoundError as e:
+        click.echo(str(e))
+        return
+
+    click.echo(f"Project: {manifest.name} v{manifest.version}")
+    click.echo(f"Skills: {', '.join(manifest.skills)}")
+    click.echo(f"Default: {manifest.default_skill or 'none'}")
+    click.echo(f"Fusion: {'enabled' if manifest.fusion_enabled else 'disabled'}")
+
+    skill_name, reason = mgr.route()
+    click.echo(f"Current routing: {skill_name} ({reason})")
+
+
+@project.command("query")
+@click.argument("text")
+@click.option("--all", "query_all", is_flag=True, help="Query all skills")
+@click.option("--profile", default=None, help="Override routing")
+@click.pass_context
+def project_query(ctx, text, query_all, profile):
+    """Query context in a multi-skill project."""
+    from contextledger.project.manager import ProjectManager
+    mgr = ProjectManager()
+    try:
+        mgr.load()
+    except FileNotFoundError as e:
+        click.echo(str(e))
+        return
+
+    if query_all:
+        result = mgr.query_all(text)
+    else:
+        result = mgr.query_routed(text, explicit_profile=profile)
+
+    click.echo(f"Routed to: {result.active_skill} ({result.routing_reason})")
+    for item in result.fused_results:
+        content = item.get("content", "") if isinstance(item, dict) else getattr(item, "content", "")
+        click.echo(f"  - {content[:100]}")
+
+
+@project.command("route")
+@click.option("--query", default=None)
+@click.option("--dir", "directory", default=None)
+@click.option("--file", "file_path", default=None)
+@click.pass_context
+def project_route(ctx, query, directory, file_path):
+    """Dry-run routing — show which skill would be selected."""
+    from contextledger.project.manager import ProjectManager
+    mgr = ProjectManager()
+    try:
+        mgr.load()
+    except FileNotFoundError as e:
+        click.echo(str(e))
+        return
+
+    skill, reason = mgr.route(query=query, current_dir=directory, file_path=file_path)
+    click.echo(f"{skill} ({reason})")
+
+
+@project.command("add-skill")
+@click.argument("skill_name")
+@click.option("--directories", default=None, help="Comma-separated directories")
+@click.option("--keywords", default=None, help="Comma-separated keywords")
+@click.pass_context
+def project_add_skill(ctx, skill_name, directories, keywords):
+    """Add a skill to the project manifest."""
+    from contextledger.project.manifest import ManifestParser, ManifestLocator, MANIFEST_DIR, MANIFEST_FILENAME
+    import yaml
+
+    locator = ManifestLocator()
+    path = locator.find()
+    if not path:
+        click.echo("No project manifest found. Run `ctx project init` first.")
+        return
+
+    with open(path) as f:
+        data = yaml.safe_load(f.read())
+
+    if skill_name in data.get("skills", []):
+        click.echo(f"Skill '{skill_name}' already in project.")
+        return
+
+    data.setdefault("skills", []).append(skill_name)
+
+    route = {"skill": skill_name}
+    if directories:
+        route["directories"] = [d.strip() for d in directories.split(",")]
+    if keywords:
+        route["keywords"] = [k.strip() for k in keywords.split(",")]
+    if directories or keywords:
+        data.setdefault("routes", []).append(route)
+
+    with open(path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+    click.echo(f"Added skill '{skill_name}' to project.")
+
+
+@project.command("remove-skill")
+@click.argument("skill_name")
+@click.pass_context
+def project_remove_skill(ctx, skill_name):
+    """Remove a skill from the project manifest."""
+    from contextledger.project.manifest import ManifestLocator
+    import yaml
+
+    locator = ManifestLocator()
+    path = locator.find()
+    if not path:
+        click.echo("No project manifest found.")
+        return
+
+    with open(path) as f:
+        data = yaml.safe_load(f.read())
+
+    skills = data.get("skills", [])
+    if skill_name not in skills:
+        click.echo(f"Skill '{skill_name}' not in project.")
+        return
+
+    skills.remove(skill_name)
+    data["routes"] = [r for r in data.get("routes", []) if r.get("skill") != skill_name]
+    if data.get("default_skill") == skill_name:
+        data["default_skill"] = skills[0] if skills else None
+
+    with open(path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+    click.echo(f"Removed skill '{skill_name}' from project.")

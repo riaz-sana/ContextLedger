@@ -35,7 +35,43 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 
 class ConflictResolver:
-    """Routes merge conflicts to the appropriate resolution tier."""
+    """Routes merge conflicts to the appropriate resolution tier.
+
+    Supports optional LLM-backed Tier 2 evaluation via ``evaluate_tier2()``.
+    """
+
+    def evaluate_tier2(self, section_key, parent_value, fork_value,
+                        profile, llm_client, recent_findings=None):
+        """Run Tier 2 LLM-backed evaluation for a conflicting section.
+
+        Returns a structured result with scores and recommendation.
+        """
+        from contextledger.merge.evaluator import Evaluator
+        from contextledger.merge.scorer import Scorer
+
+        evaluator = Evaluator()
+        scorer = Scorer()
+        findings = recent_findings or []
+
+        parent_template = {"id": "parent_eval", "prompt": str(parent_value)}
+        fork_template = {"id": "fork_eval", "prompt": str(fork_value)}
+
+        if findings and llm_client:
+            report = evaluator.evaluate_with_llm(
+                findings, parent_template, fork_template, profile, llm_client
+            )
+        else:
+            report = evaluator.evaluate(
+                findings, parent_template, fork_template
+            )
+
+        return {
+            "conflict_type": "tier2",
+            "section": section_key,
+            "scores": report,
+            "recommendation": report.get("recommendation", "parallel"),
+            "requires_user_decision": True,
+        }
 
     def detect_conflicts(
         self, parent_changes: dict, fork_changes: dict

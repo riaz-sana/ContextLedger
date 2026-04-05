@@ -1,35 +1,30 @@
 """Jina EmbeddingBackend implementation.
 
-Uses jina-embeddings-v3 for local embedding generation.
+Uses sentence-transformers to load the jinaai/jina-embeddings-v3 model locally.
+Requires: pip install sentence-transformers  (core dependency)
 """
 
 import math
 from typing import List
 
+from sentence_transformers import SentenceTransformer
+
 
 class JinaEmbeddingBackend:
-    """EmbeddingBackend using Jina embeddings v3.
+    """EmbeddingBackend using Jina embeddings v3 via sentence-transformers.
 
-    Requires jina-embeddings package: pip install jina-embeddings
+    The model is downloaded on first use and cached locally.
     """
 
-    def __init__(self, model_name: str = "jina-embeddings-v3"):
-        self._model_name = model_name
-        try:
-            from jina_embeddings import JinaEmbeddings
-            self._model = JinaEmbeddings(model_name)
-        except ImportError:
-            self._model = None
+    def __init__(self, model_name: str = "jinaai/jina-embeddings-v3"):
+        self._model = SentenceTransformer(model_name, trust_remote_code=True)
 
     def encode(self, text: str) -> List[float]:
-        if self._model is None:
-            raise RuntimeError("jina-embeddings not installed. Run: pip install jina-embeddings")
         return self._model.encode(text).tolist()
 
     def encode_batch(self, texts: List[str]) -> List[List[float]]:
-        if self._model is None:
-            raise RuntimeError("jina-embeddings not installed")
-        return [self._model.encode(t).tolist() for t in texts]
+        embeddings = self._model.encode(texts)
+        return [e.tolist() for e in embeddings]
 
     def similarity(self, a: List[float], b: List[float]) -> float:
         dot = sum(x * y for x, y in zip(a, b))

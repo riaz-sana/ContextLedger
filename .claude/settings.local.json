@@ -37,7 +37,15 @@
       "Bash(python -c \"from contextledger.mcp.mcp_server import mcp; print\\(f'MCP server ready: {mcp.name}'\\)\")",
       "Bash(python -c \"import inspect; from mcp.server.fastmcp import FastMCP; print\\(inspect.signature\\(FastMCP.__init__\\)\\)\")",
       "Bash(python -m pytest tests/ -q --tb=short)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(f\\\\\"{t['id']}: [{t['status']}] {t['title']} \\(Phase {t['phase']}\\)\\\\\"\\) for t in d['queue']]\")",
+      "Bash(python -m pytest tests/ --tb=short)",
+      "Bash(mkdir -p contextledger/backends/llm contextledger/project tests/project tests/backends/llm)",
+      "Bash(touch contextledger/backends/llm/__init__.py contextledger/project/__init__.py tests/project/__init__.py tests/backends/llm/__init__.py)",
+      "Bash(find . -name \"__pycache__\" -type d -exec rm -rf {} +)",
+      "Bash(python -m pytest tests/ --tb=short -v)",
+      "Bash(pip search:*)",
+      "Bash(pip index:*)"
     ]
   }
 }
