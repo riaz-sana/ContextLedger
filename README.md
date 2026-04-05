@@ -20,7 +20,14 @@ ContextLedger solves both.
 
 ContextLedger is two things built on the same infrastructure:
 
-**1. Skill Versioning** — Version control for AI skill profiles. Fork a skill for a new domain. Iterate independently. Merge improvements back with semantic conflict resolution that understands whether a change actually improves findings, not just whether the text differs.
+**1. Skill Versioning** — Version control for AI skill profiles. You build a workflow—extraction rules, reasoning logic, synthesis templates—for one domain. You want to fork it for a different domain, iterate independently on each, then merge improvements back without losing reproducibility. ContextLedger supports this for any workflow that has configurable extraction, reasoning, and synthesis steps.
+
+Examples:
+- Agent testing frameworks (fork Agent Prober rules per target type)
+- Data pipelines (fork extraction logic per data source)
+- RAG systems (fork retrieval strategies per knowledge domain)
+- Document processors (fork parsing rules per document type)
+- Research workflows (fork analysis rules per research question)
 
 **2. Second Brain** — A unified context layer across all your AI interfaces. Claude Code, Claude Chat, Cursor, OpenAI, Perplexity — every session feeds into one memory. Query across all of it from anywhere.
 
@@ -45,6 +52,18 @@ This matters. Don't confuse it with tools that solve adjacent problems:
 Spring AI's documentation (January 2026) explicitly states: *"Limited Skill Versioning — there's currently no built-in versioning system for skills. If you update a skill's behavior, all applications using that skill will immediately use the new version."*
 
 No framework today lets you fork a skill, iterate independently per domain, and merge back with evaluation-backed conflict resolution. ContextLedger is that layer.
+
+---
+
+## Domain-Agnostic Design
+
+ContextLedger doesn't assume what you're extracting, reasoning about, or synthesizing. The profile schema is generic:
+
+- `extraction.sources` can be database, filesystem, API, document store, sensor stream, etc.
+- `extraction.entities` can be database tables, files, API endpoints, document types, etc.
+- `synthesis.dag` defines the computational pipeline — same structure regardless of domain
+
+The examples in this README use database/filesystem for concreteness. Your use cases may be completely different. The architecture is the same.
 
 ---
 
@@ -106,7 +125,9 @@ ctx init
 
 ---
 
-## Mode 1: Skill Versioning (Start Here)
+## Mode 1: Skill Versioning (Any Workflow)
+
+Define a workflow profile for any domain, fork it for other domains, iterate and merge with semantic conflict resolution.
 
 ### If you have an existing skill and want to version-control it
 
@@ -197,7 +218,9 @@ The merge runs tier-based conflict resolution:
 
 ```bash
 ctx new my-research-skill
-# Interactive wizard asks: data source, entities, domain
+# > Data source: your data source (database, filesystem, API, etc.)
+# > Entity types: relevant entities for your domain
+# > Domain: your domain
 ```
 
 Or fork from a built-in base template:
@@ -519,6 +542,23 @@ pytest tests/backends/registry/test_github.py -v
 | `ctx query <text>` | Query across all memory tiers |
 | `ctx status` | Show registry info, active profile, memory stats |
 | `ctx connect <interface>` | Connect to an AI interface via MCP |
+
+---
+
+## Bringing Existing Skills/Workflows Into ContextLedger
+
+If you already have a workflow you want to version and fork:
+
+1. **Inventory your workflow**: What are you extracting? What rules govern reasoning? How do you synthesize findings?
+2. **Map to profile structure**:
+   - `extraction.sources` = where data comes from
+   - `extraction.entities` = what you're looking for
+   - `extraction.rules` = patterns and confidence thresholds for matching
+   - `synthesis.dag` = how you process from extraction → reasoning → synthesis
+3. **Create a profile.yaml** with your rules
+4. **Fork and iterate** for new domains
+
+ContextLedger will track versions, inheritance, and changes. No assumption about *what* you're working with.
 
 ---
 
