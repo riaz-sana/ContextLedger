@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "contextledger"
+version = "0.1.0"
+description = "Universal context layer and skill versioning platform for AI interfaces"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+]
+
+[project.scripts]
+ctx = "contextledger.cli.main:cli"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

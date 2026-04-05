@@ -1,0 +1,266 @@
+{
+  "project": "ContextLedger",
+  "version": "0.1.0",
+  "queue": [
+    {
+      "id": "TASK-001",
+      "title": "Implement core data types",
+      "description": "Define MemoryUnit, SkillBundle, ProfileMetadata, ProfileDiff as dataclasses in core/types.py. MemoryUnit fields: id, content, unit_type, profile_name, embedding, tags, timestamp, parent_id, metadata. SkillBundle fields: name, version, profile_yaml, parent, tools, refs. ProfileMetadata fields: name, version, parent, created_at, updated_at. ProfileDiff fields: profile_a, profile_b, changed_sections, added_sections, removed_sections, conflict_tiers.",
+      "phase": 1,
+      "status": "pending",
+      "test_file": "tests/core/test_types.py",
+      "target_file": "contextledger/core/types.py",
+      "depends_on": []
+    },
+    {
+      "id": "TASK-002",
+      "title": "Define backend Protocol classes",
+      "description": "Write @runtime_checkable Protocol classes in core/protocols.py. StorageBackend: write, read, search, traverse, delete, list_by_profile. EmbeddingBackend: encode, encode_batch, similarity. RegistryBackend: list_profiles, get_profile, save_profile, fork_profile, list_versions, get_diff.",
+      "phase": 1,
+      "status": "pending",
+      "test_file": "tests/core/test_protocols.py",
+      "target_file": "contextledger/core/protocols.py",
+      "depends_on": ["TASK-001"]
+    },
+    {
+      "id": "TASK-003",
+      "title": "Implement StubStorageBackend",
+      "description": "In-memory dict-backed StorageBackend stub. write() stores unit and returns ID. read() returns unit or None. search() returns subset by limit. traverse() follows parent_id links. delete() removes and returns bool. list_by_profile() filters by profile_name.",
+      "phase": 1,
+      "status": "pending",
+      "test_file": "tests/backends/storage/test_stub.py",
+      "target_file": "contextledger/backends/storage/stub.py",
+      "depends_on": ["TASK-002"]
+    },
+    {
+      "id": "TASK-004",
+      "title": "Implement StubEmbeddingBackend",
+      "description": "Deterministic mock EmbeddingBackend. encode() returns fixed-length float vector derived from input hash. encode_batch() calls encode per item. similarity() computes cosine similarity. Must satisfy: identical inputs produce identical embeddings, self-similarity is 1.0.",
+      "phase": 1,
+      "status": "pending",
+      "test_file": "tests/backends/embedding/test_stub.py",
+      "target_file": "contextledger/backends/embedding/stub.py",
+      "depends_on": ["TASK-002"]
+    },
+    {
+      "id": "TASK-005",
+      "title": "Implement StubRegistryBackend",
+      "description": "In-memory dict-backed RegistryBackend stub. save_profile() stores bundle keyed by name+version. get_profile() retrieves by name and optional version. fork_profile() copies parent bundle with new name and parent reference. list_versions() returns all version strings. get_diff() returns a ProfileDiff.",
+      "phase": 1,
+      "status": "pending",
+      "test_file": "tests/backends/registry/test_stub.py",
+      "target_file": "contextledger/backends/registry/stub.py",
+      "depends_on": ["TASK-001", "TASK-002"]
+    },
+    {
+      "id": "TASK-006",
+      "title": "Implement lossless three-pass trimmer",
+      "description": "Build Trimmer class in memory/trimmer.py. Pass 1: strip_tool_output() removes [TOOL_OUTPUT] blocks. Pass 2: strip_base64() removes data:image/...;base64,... content, replaces with placeholder. Pass 3: strip_metadata() normalizes whitespace and removes [META:] markers. Pipeline: trim_session() runs all three passes on each assistant message, preserves user messages verbatim, preserves message count and order, reports reduction_pct. Respects configurable threshold — skip trimming if overhead is below threshold.",
+      "phase": 2,
+      "status": "pending",
+      "test_file": "tests/memory/test_trimmer.py",
+      "target_file": "contextledger/memory/trimmer.py",
+      "depends_on": []
+    },
+    {
+      "id": "TASK-007",
+      "title": "Implement CMV DAG engine",
+      "description": "Build CMVEngine class in memory/cmv.py. snapshot(session_log) creates a versioned node with messages, timestamp, parent_id; first snapshot has parent_id=None, subsequent snapshots chain to previous. branch(snapshot_id, orientation=None) creates a new node referencing the parent snapshot; multiple branches from one snapshot form a DAG; raises on nonexistent snapshot_id. trim(snapshot_id) delegates to Trimmer and returns a new trimmed node with smaller size. DAG queries: get_node(id), list_nodes(), get_history(id) returns ancestor chain, get_children(id) returns immediate children, get_size(id) returns content size.",
+      "phase": 2,
+      "status": "pending",
+      "test_file": "tests/memory/test_cmv.py",
+      "target_file": "contextledger/memory/cmv.py",
+      "depends_on": ["TASK-001", "TASK-006"]
+    },
+    {
+      "id": "TASK-008",
+      "title": "Implement three-tier memory router",
+      "description": "Build in memory/tiers.py: TierRouter.route(query) classifies query intent and returns list of tier names ('immediate', 'synthesis', 'archival'). ImmediateTier(max_turns) with add_turn(), get_turns(), query(), clear(); evicts oldest when exceeding max_turns. SynthesisTier(window_days) with add_finding(), get_findings(), query(); expires findings older than window_days. ArchivalTier with store(), search(query_embedding, limit), count(); never expires, supports semantic similarity search.",
+      "phase": 2,
+      "status": "pending",
+      "test_file": "tests/memory/test_tiers.py",
+      "target_file": "contextledger/memory/tiers.py",
+      "depends_on": ["TASK-001", "TASK-003", "TASK-004"]
+    },
+    {
+      "id": "TASK-009",
+      "title": "Implement SQLite StorageBackend",
+      "description": "Build SQLiteStorageBackend(db_path) in backends/storage/sqlite.py satisfying StorageBackend protocol. Auto-creates tables on init. write() inserts with serialized embedding. read() deserializes. search() computes cosine similarity against stored embeddings. traverse() follows parent_id chain to given depth. delete() removes row, returns False if not found. list_by_profile() filters by profile_name. Data must persist across instances with the same db_path.",
+      "phase": 3,
+      "status": "pending",
+      "test_file": "tests/backends/storage/test_sqlite.py",
+      "target_file": "contextledger/backends/storage/sqlite.py",
+      "depends_on": ["TASK-001", "TASK-002"]
+    },
+    {
+      "id": "TASK-010",
+      "title": "Implement Jina EmbeddingBackend",
+      "description": "Build JinaEmbeddingBackend in backends/embedding/jina.py using jina-embeddings-v3. encode() returns embedding vector. encode_batch() encodes list efficiently. similarity() computes cosine similarity. Must produce semantically meaningful vectors (similar texts closer than unrelated texts). Tests skipped until jina-embeddings is installed.",
+      "phase": 3,
+      "status": "pending",
+      "test_file": "tests/backends/embedding/test_jina.py",
+      "target_file": "contextledger/backends/embedding/jina.py",
+      "depends_on": ["TASK-002"]
+    },
+    {
+      "id": "TASK-011",
+      "title": "Implement Git local RegistryBackend",
+      "description": "Build GitLocalRegistryBackend(repo_path) in backends/registry/git_local.py using gitpython. save_profile() writes skill directory bundle (skills/<name>/profile.yaml) and commits. get_profile() reads from working tree. fork_profile() creates a git branch and child bundle with parent reference. list_versions() returns commit history for a profile. get_diff() diffs two profile directories.",
+      "phase": 3,
+      "status": "pending",
+      "test_file": "tests/backends/registry/test_git_local.py",
+      "target_file": "contextledger/backends/registry/git_local.py",
+      "depends_on": ["TASK-001", "TASK-002"]
+    },
+    {
+      "id": "TASK-012",
+      "title": "Implement profile YAML parser and validator",
+      "description": "Build ProfileParser in skill/parser.py. parse(yaml_string) returns structured dict with name, version, parent, extraction (entities, sources, rules), synthesis (dag with nodes, templates), memory_schema (graph_nodes, graph_edges), session_context (mode, cmv_enabled, trim_threshold, memory_tiers). validate(profile) rejects: missing name/version, cyclic DAG, invalid node types (only extraction/reasoning/synthesis/filter), dangling dependency references, confidence_threshold outside 0-1. Base profiles have parent=None.",
+      "phase": 4,
+      "status": "pending",
+      "test_file": "tests/skill/test_parser.py",
+      "target_file": "contextledger/skill/parser.py",
+      "depends_on": []
+    },
+    {
+      "id": "TASK-013",
+      "title": "Implement DAG executor",
+      "description": "Build DAGExecutor in skill/dag.py. topological_sort(dag) returns node IDs in valid execution order; raises ValueError on cycles. execute(dag, context, on_node=None) runs nodes in topological order, passes outputs from upstream nodes as inputs to dependents, returns dict of {node_id: output}. Handles: single root, linear chain, parallel roots, diamond dependencies, empty DAG. Rejects invalid node types.",
+      "phase": 4,
+      "status": "pending",
+      "test_file": "tests/skill/test_dag.py",
+      "target_file": "contextledger/skill/dag.py",
+      "depends_on": ["TASK-012"]
+    },
+    {
+      "id": "TASK-014",
+      "title": "Implement fork and inheritance resolution",
+      "description": "Build ForkManager in skill/fork.py. fork(parent, new_name) creates a child profile with parent reference, auto-generated version, no copied tools/refs (inheritance by reference only, copy-on-write). resolve(profile, registry) walks the parent chain via registry lookups, merges sections with child overrides taking precedence over parent defaults. Handles: base profiles (no parent), single-level forks, deep chains (grandparent->parent->child). Raises on missing parent in registry.",
+      "phase": 4,
+      "status": "pending",
+      "test_file": "tests/skill/test_fork.py",
+      "target_file": "contextledger/skill/fork.py",
+      "depends_on": ["TASK-012"]
+    },
+    {
+      "id": "TASK-015",
+      "title": "Implement interactive profile wizard",
+      "description": "Build wizard in skill/wizard.py. Prompts user for data source, entity types, domain. Generates a valid profile.yaml from responses. Supports template fork path (ctx fork base-research-skill my-skill).",
+      "phase": 4,
+      "status": "pending",
+      "test_file": null,
+      "target_file": "contextledger/skill/wizard.py",
+      "depends_on": ["TASK-012"]
+    },
+    {
+      "id": "TASK-016",
+      "title": "Implement merge scoring module",
+      "description": "Build Scorer in merge/scorer.py. precision(extracted) counts correct/total, returns 0.0 for empty input. recall(expected, found) counts found-in-expected/total-expected. novelty(baseline, new_findings) counts items not in baseline / total new. compare(parent_outputs, fork_outputs, expected) returns structured report with per-version precision/recall and overall winner/recommendation.",
+      "phase": 7,
+      "status": "pending",
+      "test_file": "tests/merge/test_scorer.py",
+      "target_file": "contextledger/merge/scorer.py",
+      "depends_on": []
+    },
+    {
+      "id": "TASK-017",
+      "title": "Implement conflict resolution router",
+      "description": "Build ConflictResolver in merge/resolver.py. detect_conflicts(parent_changes, fork_changes) finds overlapping section keys. classify(section, parent_value, fork_value, has_dag_dependency) returns tier 1 (non-overlapping or identical values), tier 2 (same section different logic, no DAG dep), or tier 3 (conflicting with DAG dependency). merge(parent, fork) auto-merges tier 1, returns evaluation_needed for tier 2, blocks for tier 3. HARD RULE: tier 3 must NEVER auto-merge.",
+      "phase": 7,
+      "status": "pending",
+      "test_file": "tests/merge/test_resolver.py",
+      "target_file": "contextledger/merge/resolver.py",
+      "depends_on": ["TASK-012"]
+    },
+    {
+      "id": "TASK-018",
+      "title": "Implement tier 2 evaluation harness",
+      "description": "Build Evaluator and FindingsStore in merge/evaluator.py. FindingsStore: add(profile, finding), get_by_profile(profile, limit=None) with provenance tracking. Evaluator.evaluate(findings, parent_template, fork_template, sample_size=50) runs both templates on same findings, scores via Scorer, returns report with parent_score, fork_score, metrics, recommendation (merge/reject/parallel). Returns inconclusive for empty findings. Respects sample_size.",
+      "phase": 7,
+      "status": "pending",
+      "test_file": "tests/merge/test_evaluator.py",
+      "target_file": "contextledger/merge/evaluator.py",
+      "depends_on": ["TASK-016", "TASK-017"]
+    },
+    {
+      "id": "TASK-019",
+      "title": "Implement MCP server",
+      "description": "Build ContextLedgerMCP in mcp/server.py. ctx_ingest(session_log) runs signal extraction, stores to memory, returns {status, signals_extracted}. ctx_query(query, profile=None) routes through TierRouter, returns list of results. ctx_grep(pattern) searches findings by pattern. ctx_status() returns {active_profile, sessions_ingested, total_units}. skill_checkout(name, version=None) switches active profile. Must work without any profile configured (second brain mode).",
+      "phase": 5,
+      "status": "pending",
+      "test_file": "tests/mcp/test_server.py",
+      "target_file": "contextledger/mcp/server.py",
+      "depends_on": ["TASK-006", "TASK-007", "TASK-008"]
+    },
+    {
+      "id": "TASK-020",
+      "title": "Implement CLI commands",
+      "description": "Build Click CLI in cli/main.py with ctx entry point. Commands: init (create registry, uses CTX_HOME env var), new <name> (wizard-driven profile creation), list (list profiles), checkout <name>[@version], fork <parent> <child>, diff <a> <b>, merge <fork> <parent>, query <text>, status, connect <interface>. Uses CliRunner for testing.",
+      "phase": 6,
+      "status": "pending",
+      "test_file": "tests/cli/test_main.py",
+      "target_file": "contextledger/cli/main.py",
+      "depends_on": ["TASK-014", "TASK-017", "TASK-019"]
+    },
+    {
+      "id": "TASK-021",
+      "title": "Package for pip install",
+      "description": "Finalize pyproject.toml with all runtime dependencies (click, pyyaml, gitpython, jina-embeddings). Ensure ctx entry point works after pip install. Add [dev] extras (pytest, pytest-cov).",
+      "phase": 6,
+      "status": "pending",
+      "test_file": null,
+      "target_file": "pyproject.toml",
+      "depends_on": ["TASK-020"]
+    },
+    {
+      "id": "TASK-022",
+      "title": "Integration test: second brain mode",
+      "description": "End-to-end test of zero-config mode: instantiate ContextLedgerMCP with no profile, ingest multiple sessions, query across all sessions, verify CMV trimming on heavy sessions, verify tier routing for different query intents. Must work without any skill profile configured.",
+      "phase": 5,
+      "status": "pending",
+      "test_file": "tests/integration/test_second_brain.py",
+      "target_file": null,
+      "depends_on": ["TASK-019"]
+    },
+    {
+      "id": "TASK-023",
+      "title": "Integration test: skill versioning mode",
+      "description": "End-to-end test of full lifecycle: parse profile -> validate -> fork -> resolve inheritance -> diff -> merge with tier 1 auto-merge, tier 2 evaluation trigger, tier 3 block. Verify overrides take precedence, inherited sections pass through, missing parents raise errors.",
+      "phase": 7,
+      "status": "pending",
+      "test_file": "tests/integration/test_skill_versioning.py",
+      "target_file": null,
+      "depends_on": ["TASK-014", "TASK-017", "TASK-018"]
+    },
+    {
+      "id": "TASK-024",
+      "title": "Implement Postgres+pgvector StorageBackend",
+      "description": "Build PostgresStorageBackend satisfying StorageBackend protocol. Use pgvector extension for embedding similarity search. Connection via DATABASE_URL env var.",
+      "phase": 8,
+      "status": "pending",
+      "test_file": null,
+      "target_file": "contextledger/backends/storage/postgres.py",
+      "depends_on": ["TASK-002"]
+    },
+    {
+      "id": "TASK-025",
+      "title": "Implement OpenAI EmbeddingBackend",
+      "description": "Build OpenAIEmbeddingBackend using text-embedding-3. Implements encode, encode_batch, similarity. API key via OPENAI_API_KEY env var.",
+      "phase": 8,
+      "status": "pending",
+      "test_file": null,
+      "target_file": "contextledger/backends/embedding/openai.py",
+      "depends_on": ["TASK-002"]
+    },
+    {
+      "id": "TASK-026",
+      "title": "Implement GitHub remote RegistryBackend",
+      "description": "Build GitHubRegistryBackend using GitHub API. Push/pull skill bundles to remote repo. Auth via GITHUB_TOKEN env var.",
+      "phase": 8,
+      "status": "pending",
+      "test_file": null,
+      "target_file": "contextledger/backends/registry/github.py",
+      "depends_on": ["TASK-002"]
+    }
+  ]
+}
