@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "contextledger"
 version = "0.1.0"
 description = "Universal context layer and skill versioning platform for AI interfaces"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11"
 dependencies = [
     "click>=8.0",
     "pyyaml>=6.0",
@@ -20,7 +20,8 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
 ]
-jina = ["sentence-transformers>=3.0"]
+jina-local = ["sentence-transformers>=3.0"]
+jina-api = ["httpx>=0.25"]
 openai = ["openai>=1.0"]
 postgres = ["psycopg2-binary>=2.9"]
 supabase = ["supabase"]

@@ -11,6 +11,32 @@ No existing tool handles this.
 pip install contextledger
 ```
 
+### Embedding Backend — Read This First
+
+ContextLedger needs an embedding backend for semantic search (`ctx query`, memory tiers, Tier 2 evaluation). You must choose one:
+
+**Option A — Local embeddings (PRIVATE, recommended)**
+```bash
+pip install contextledger[jina-local]
+```
+Uses `sentence-transformers` to run Jina embeddings v3 locally. **All data stays on your machine.** No API calls, no external servers. Requires Python 3.11-3.13 (no 3.14 wheel yet).
+
+**Option B — Jina API (Python 3.14 compatible)**
+```bash
+pip install contextledger[jina-api]
+export JINA_API_KEY=jina_...  # free at https://jina.ai
+```
+Calls Jina's REST API. Works on any Python version including 3.14. **WARNING: your query text and finding summaries are sent to Jina's servers.** Only use this if you accept that trade-off or are not working with sensitive data.
+
+**Option C — OpenAI API**
+```bash
+pip install contextledger[openai]
+export OPENAI_API_KEY=sk-...
+```
+Same privacy trade-off as Option B — text is sent to OpenAI's servers.
+
+> **Python 3.14 users:** `sentence-transformers` has no 3.14 wheel yet. Your options are the Jina API (Option B), OpenAI (Option C), or downgrading to Python 3.12 for local embeddings. We recommend Python 3.12 if privacy matters.
+
 ---
 
 ### Skill Versioning
@@ -349,7 +375,7 @@ Every backend is a Python `Protocol`. Swap without touching any other code:
 | Backend | Default | Alternatives |
 |---|---|---|
 | Storage | SQLite (local, zero-config) | Postgres + pgvector |
-| Embedding | Jina v3 via sentence-transformers (local, free) | OpenAI text-embedding-3 |
+| Embedding | Jina v3 local (private, offline) | Jina API, OpenAI API (send data to servers) |
 | Registry | Git (local repo) | GitHub remote |
 | LLM | Claude (via Anthropic API) | Any LLMClient implementation |
 
@@ -417,13 +443,21 @@ Every backend is a Python `Protocol`. Swap without touching any other code:
 
 ## Dependencies
 
-**Core:** Python 3.11+, `click`, `pyyaml`, `mcp`, `sentence-transformers`, `anthropic`
+**Core:** Python 3.11+, `click`, `pyyaml`, `gitpython`, `anthropic`, `mcp`
 
-**Optional:**
+**Embedding backend (pick one):**
 ```bash
-pip install contextledger[openai]    # OpenAI embeddings
-pip install contextledger[postgres]  # Postgres + pgvector storage
-pip install contextledger[git]       # GitPython for registry
+pip install contextledger[jina-local]  # Local, private, offline (Python 3.11-3.13)
+pip install contextledger[jina-api]    # Jina API, needs JINA_API_KEY (any Python)
+pip install contextledger[openai]      # OpenAI API, needs OPENAI_API_KEY
+```
+
+**Other optional extras:**
+```bash
+pip install contextledger[supabase]    # Shared findings backend
+pip install contextledger[postgres]    # Postgres + pgvector storage
+pip install contextledger[editor]      # Visual profile editor (FastAPI)
+pip install contextledger[langchain]   # LangChain callback handler
 ```
 
 ---

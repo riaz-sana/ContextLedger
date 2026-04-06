@@ -51,7 +51,10 @@
       "Bash(python -m pytest tests/integration/test_llm_real.py --tb=short -v)",
       "Bash(python -m contextledger init)",
       "Bash(python -m pytest tests/ --tb=short --ignore=tests/backends/embedding/test_jina.py --ignore=tests/integration/test_llm_real.py -q)",
-      "Bash(ls e:/ContextLedger/contextledger/backends/findings/*.py)"
+      "Bash(ls e:/ContextLedger/contextledger/backends/findings/*.py)",
+      "Bash(python -m contextledger --help)",
+      "Bash(python -m pytest tests/ --tb=short --ignore=tests/integration/test_llm_real.py -q)",
+      "Bash(python -m pytest tests/backends/embedding/test_jina.py::TestJinaEmbeddingBackend::test_encode_returns_vector --tb=short)"
     ]
   }
 }
