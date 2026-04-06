@@ -35,7 +35,16 @@ export OPENAI_API_KEY=sk-...
 ```
 Same privacy trade-off as Option B — text is sent to OpenAI's servers.
 
-> **Python 3.14 users:** `sentence-transformers` has no 3.14 wheel yet. Your options are the Jina API (Option B), OpenAI (Option C), or downgrading to Python 3.12 for local embeddings. We recommend Python 3.12 if privacy matters.
+**Option D — OpenRouter (routes to any model)**
+```bash
+pip install contextledger[openrouter]
+export OPENROUTER_API_KEY=sk-or-...
+# Optional: override model (default: openai/text-embedding-3-small)
+export OPENROUTER_EMBEDDING_MODEL=openai/text-embedding-3-large
+```
+Uses the OpenAI-compatible SDK with OpenRouter's endpoint. Access any embedding model available on OpenRouter. Same privacy trade-off — text goes through OpenRouter's servers.
+
+> **Python 3.14 users:** `sentence-transformers` has no 3.14 wheel yet. Your options are the Jina API (Option B), OpenAI (Option C), OpenRouter (Option D), or downgrading to Python 3.12 for local embeddings. We recommend Python 3.12 if privacy matters.
 
 ---
 

@@ -23,6 +23,7 @@ dev = [
 jina-local = ["sentence-transformers>=3.0"]
 jina-api = ["httpx>=0.25"]
 openai = ["openai>=1.0"]
+openrouter = ["openai>=1.0"]
 postgres = ["psycopg2-binary>=2.9"]
 supabase = ["supabase"]
 turso = ["libsql-client"]

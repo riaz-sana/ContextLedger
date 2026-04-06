@@ -45,16 +45,16 @@ def get_embedding_backend():
                 f"Jina API failed: {e}"
             ) from e
 
-    # 3. Try OpenAI (only if OPENAI_API_KEY is explicitly set)
-    if os.environ.get("OPENAI_API_KEY"):
+    # 3. Try OpenAI / OpenRouter (if any relevant key is set)
+    if os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENROUTER_API_KEY"):
         try:
             from contextledger.backends.embedding.openai import OpenAIEmbeddingBackend
-            return OpenAIEmbeddingBackend()
+            return OpenAIEmbeddingBackend.from_env()
         except ImportError:
             pass
         except Exception as e:
             raise EmbeddingBackendNotAvailable(
-                f"OpenAI embeddings failed: {e}"
+                f"OpenAI/OpenRouter embeddings failed: {e}"
             ) from e
 
     # Nothing available
@@ -66,9 +66,11 @@ def get_embedding_backend():
         "  Requires Python 3.11-3.13. All data stays on your machine.\n\n"
         "Option 2 — Jina API (sends text to Jina's servers):\n"
         "  pip install httpx\n"
-        "  export JINA_API_KEY=jina_...  (free at https://jina.ai)\n"
-        "  Works on Python 3.14. WARNING: your text is sent to Jina.\n\n"
-        "Option 3 — OpenAI API (sends text to OpenAI's servers):\n"
+        "  export JINA_API_KEY=jina_...  (free at https://jina.ai)\n\n"
+        "Option 3 — OpenAI (sends text to OpenAI):\n"
         "  pip install openai\n"
-        "  export OPENAI_API_KEY=sk-...\n"
+        "  export OPENAI_API_KEY=sk-...\n\n"
+        "Option 4 — OpenRouter (routes to any model):\n"
+        "  pip install openai\n"
+        "  export OPENROUTER_API_KEY=sk-or-...\n"
     )
