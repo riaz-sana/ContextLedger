@@ -217,33 +217,18 @@ structured extraction on top. Use `ctx query` for broad context search and
 
 ### Using ContextLedger across multiple projects
 
-ContextLedger is installed once on your machine. The registry (`~/.contextledger`) stores all skills and memory globally. When you move to a different project:
+After this first-time setup, adding ContextLedger to any other project is one command:
 
 ```bash
-cd ~/new-project
-
-# The registry already exists — no need to run ctx init again
-# Just create a project manifest for this project:
-python -m contextledger project init
-
-# Create project-specific skills:
-python -m contextledger new new-project-skill
-
-# Or import existing code as skills:
-python -m contextledger extract --from src/pipeline.py
+cd ~/another-project
+python -m contextledger setup
 ```
 
-You do NOT need to:
-- Re-install ContextLedger
-- Re-run `ctx init`
-- Re-configure MCP (it's already in your Claude Code settings)
-- Re-configure the embedding or findings backend
+That's it. It discovers skills, creates the project manifest, and wires MCP.
+No re-install, no re-configuring backends or API keys — those are global.
 
-You DO need to:
-- Run `python -m contextledger project init` in each new project (creates `.contextledger/project.yaml`)
-- Create or import skills specific to that project
-
-Memory and findings from all projects are stored in the same registry. When you query, results come from all projects unless you filter by skill profile.
+You only need this skill (`/contextledger-setup`) for the first-ever installation.
+After that, `python -m contextledger setup` handles everything per project.
 
 ---
 

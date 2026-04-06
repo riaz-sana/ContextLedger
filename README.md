@@ -312,24 +312,38 @@ from one to surface when querying another.
 
 ---
 
-## Automated Setup via Claude Code Skill
+## Adding ContextLedger to a Project
 
-If you use Claude Code, the fastest way to set up ContextLedger is the built-in skill:
+After installing ContextLedger once, set up any project with one command:
+
+```bash
+cd ~/my-project
+python -m contextledger setup
+```
+
+This automatically:
+1. Creates the global registry (first time only)
+2. Discovers existing skills in your project
+3. Creates `.contextledger/project.yaml` with auto-routing
+4. Wires MCP into `.claude/settings.local.json`
+
+Options:
+```bash
+python -m contextledger setup --mode second-brain     # context capture only, no skills
+python -m contextledger setup --mode skill-versioning  # skills only
+python -m contextledger setup                          # both (default)
+python -m contextledger setup --no-mcp                 # skip MCP wiring
+```
+
+### First-time setup with Claude Code Skill
+
+For the initial installation (choosing embedding backend, findings backend, API keys), use the interactive skill:
 
 ```
 /contextledger-setup
 ```
 
-This runs an interactive setup that:
-1. Verifies installation
-2. Asks you to choose an embedding backend (with privacy explanation)
-3. Initialises the registry and findings backend
-4. Discovers existing skills in your project
-5. Creates a project manifest with auto-routing
-6. Configures MCP for Claude Code
-7. Verifies API keys
-
-The skill file is at `.claude/skills/contextledger-setup/SKILL.md`.
+This walks through every decision. After that, `python -m contextledger setup` is all you need per project.
 
 ---
 
