@@ -1,5 +1,7 @@
 __pycache__/
 *.py[cod]
+*.pyo
+.Python
 *.egg-info/
 dist/
 build/
@@ -12,3 +14,7 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# OneDrive / macOS
+*.icloud
+.DS_Store
