@@ -12,6 +12,12 @@ is present in the environment — never silently.
 
 import os
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 
 class EmbeddingBackendNotAvailable(RuntimeError):
     """Raised when no real embedding backend can be loaded."""
@@ -22,18 +28,32 @@ def get_embedding_backend():
     """Load the best available embedding backend.
 
     Local-first. API only when explicitly opted in via API key.
+    Set CTX_EMBEDDING_BACKEND=jina-api|openai|openrouter to force a specific backend.
 
     Raises:
         EmbeddingBackendNotAvailable: If no backend is available.
     """
+    forced = os.environ.get("CTX_EMBEDDING_BACKEND", "").strip().lower()
+
+    # If a specific API backend is forced, skip local entirely
+    if forced == "jina-api":
+        if not os.environ.get("JINA_API_KEY"):
+            raise EmbeddingBackendNotAvailable("CTX_EMBEDDING_BACKEND=jina-api requires JINA_API_KEY in env")
+        from contextledger.backends.embedding.jina import JinaAPIEmbeddingBackend
+        return JinaAPIEmbeddingBackend()
+
+    if forced in ("openai", "openrouter"):
+        from contextledger.backends.embedding.openai import OpenAIEmbeddingBackend
+        return OpenAIEmbeddingBackend.from_env()
+
     # 1. Try local Jina (private, no data leaves machine)
     try:
         from contextledger.backends.embedding.jina import JinaEmbeddingBackend
         return JinaEmbeddingBackend()
-    except ImportError:
+    except (ImportError, RuntimeError):
         pass
-    except RuntimeError:
-        pass  # sentence-transformers not installed
+    except Exception:
+        pass  # Python 3.14+: model load may fail with non-standard errors
 
     # 2. Try Jina API (only if JINA_API_KEY is explicitly set)
     if os.environ.get("JINA_API_KEY"):

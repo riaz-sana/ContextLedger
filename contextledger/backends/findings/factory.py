@@ -21,7 +21,7 @@ def get_findings_backend(config: Optional[Dict[str, Any]] = None):
     """
     backend_name = None
     if config:
-        backend_name = config.get("backend")
+        backend_name = config.get("backend") or config.get("findings_backend")
     if not backend_name:
         backend_name = os.environ.get("CONTEXTLEDGER_FINDINGS_BACKEND")
 
@@ -32,8 +32,8 @@ def get_findings_backend(config: Optional[Dict[str, Any]] = None):
     backend_name = backend_name.lower().strip()
 
     if backend_name == "supabase":
-        url = (config or {}).get("url") or os.environ.get("SUPABASE_URL")
-        key = (config or {}).get("key") or os.environ.get("SUPABASE_ANON_KEY")
+        url = (config or {}).get("url") or (config or {}).get("supabase_url") or os.environ.get("SUPABASE_URL")
+        key = (config or {}).get("key") or (config or {}).get("supabase_key") or os.environ.get("SUPABASE_ANON_KEY")
         if not url or not key:
             raise FindingsBackendNotConfigured(
                 "Supabase backend requested but SUPABASE_URL and/or "
