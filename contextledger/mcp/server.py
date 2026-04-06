@@ -68,6 +68,23 @@ class ContextLedgerMCP:
                 signals.append(finding)
 
         self._sessions_ingested += 1
+
+        # Feed findings.db via FindingsExtractor (privacy gate)
+        if self._findings_backend and signals:
+            try:
+                from contextledger.merge.findings_extractor import FindingsExtractor
+                extractor = FindingsExtractor(self._embedding, self._findings_backend)
+                extractor.extract_and_store(
+                    synthesis_outputs={"ingested": {"findings": [
+                        {"content": s["content"], "confidence": 0.7} for s in signals
+                    ]}},
+                    skill_profile=self._active_profile or "second-brain",
+                    skill_version=self._active_version or "0.0.0",
+                    domain=session_log.get("domain", "unknown"),
+                )
+            except Exception:
+                pass  # findings extraction failure must never break ingestion
+
         return {"status": "ok", "signals_extracted": len(signals)}
 
     def ctx_query(self, query: str, profile: str | None = None) -> list:

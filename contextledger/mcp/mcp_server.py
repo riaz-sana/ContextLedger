@@ -13,10 +13,12 @@ Or add to Claude Code settings:
 """
 
 import json
+import os
 from mcp.server.fastmcp import FastMCP
 
 from contextledger.mcp.server import ContextLedgerMCP
 from contextledger.backends.embedding.factory import get_embedding_backend, EmbeddingBackendNotAvailable
+from contextledger.backends.storage.sqlite import SQLiteStorageBackend
 
 # Create MCP server
 mcp = FastMCP(
@@ -32,7 +34,24 @@ except EmbeddingBackendNotAvailable as e:
     print(str(e), file=sys.stderr)
     sys.exit(1)
 
-_engine = ContextLedgerMCP(embedding_backend=_embedding)
+_ctx_home = os.environ.get("CTX_HOME", os.path.expanduser("~/.contextledger"))
+_storage = SQLiteStorageBackend(os.path.join(_ctx_home, "memory.db"))
+
+_findings = None
+try:
+    import yaml
+    _config_path = os.path.join(_ctx_home, "config.yaml")
+    _config = yaml.safe_load(open(_config_path).read()) if os.path.exists(_config_path) else {}
+    from contextledger.backends.findings.factory import get_findings_backend
+    _findings = get_findings_backend(_config)
+except Exception:
+    pass
+
+_engine = ContextLedgerMCP(
+    embedding_backend=_embedding,
+    storage_backend=_storage,
+    findings_backend=_findings,
+)
 
 
 @mcp.tool()
@@ -110,6 +129,27 @@ def skill_checkout(name: str, version: str = "") -> str:
     """
     result = _engine.skill_checkout(name, version=version or None)
     return json.dumps(result)
+
+
+@mcp.tool()
+def ctx_project_query(query: str, mode: str = "routed", profile: str = "") -> str:
+    """Query context in a multi-skill project.
+
+    Auto-routes to the most relevant skill based on query keywords and cwd.
+
+    Args:
+        query: Natural language query.
+        mode: "routed" (auto-select skill) or "all" (query all skills).
+        profile: Optional explicit skill profile override.
+    """
+    result = _engine.ctx_project_query(query, mode=mode, profile=profile or None)
+    return json.dumps(result)
+
+
+@mcp.tool()
+def ctx_project_status() -> str:
+    """Show project manifest info — skills, routing, fusion settings."""
+    return json.dumps(_engine.ctx_project_status())
 
 
 if __name__ == "__main__":

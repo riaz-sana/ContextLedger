@@ -137,20 +137,32 @@ def new_profile(ctx, name):
     entities = click.prompt("Entity types (comma-separated)", default="finding")
     domain = click.prompt("Domain", default="general")
 
-    entity_lines = "\n".join(f"    - {e.strip()}" for e in entities.split(","))
-    profile_yaml = (
-        f"name: {name}\n"
-        f"version: 1.0.0\n"
-        f"parent: null\n"
-        f"extraction:\n"
-        f"  entities:\n"
-        f"{entity_lines}\n"
-        f"  sources:\n"
-        f"    - {source}\n"
-        f"session_context:\n"
-        f"  mode: skill_versioning\n"
-        f"  cmv_enabled: true\n"
-    )
+    import yaml as _yaml
+    entity_list = [e.strip() for e in entities.split(",") if e.strip()]
+    profile_data = {
+        "name": name,
+        "version": "1.0.0",
+        "parent": None,
+        "extraction": {
+            "entities": entity_list,
+            "sources": [source],
+            "rules": [],
+        },
+        "synthesis": {
+            "dag": {
+                "nodes": [
+                    {"id": "extract_entities", "type": "extraction", "depends_on": []},
+                    {"id": "build_relationships", "type": "reasoning", "depends_on": ["extract_entities"]},
+                    {"id": "synthesise_findings", "type": "synthesis", "depends_on": ["build_relationships"]},
+                ]
+            }
+        },
+        "session_context": {
+            "mode": "skill_versioning",
+            "cmv_enabled": True,
+        },
+    }
+    profile_yaml = _yaml.dump(profile_data, default_flow_style=False, sort_keys=False)
 
     skill_dir = os.path.join(home, "skills", name)
     os.makedirs(skill_dir, exist_ok=True)

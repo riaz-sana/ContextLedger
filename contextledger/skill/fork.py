@@ -17,13 +17,36 @@ class ForkManager:
 
         The child references the parent by name and inherits tools/refs
         by reference (no copying). Only overrides are stored on the child.
+        The child's profile_yaml is updated with the new name and parent.
         """
+        import yaml
+
         parent_version = parent.get("version", "0.0.0")
+        parent_name = parent["name"]
+
+        # Re-serialize YAML with updated name and parent
+        raw_yaml = parent.get("profile_yaml", "")
+        if raw_yaml:
+            try:
+                parsed = yaml.safe_load(raw_yaml) or {}
+            except yaml.YAMLError:
+                parsed = {}
+            parsed["name"] = new_name
+            parsed["parent"] = parent_name
+            parsed["version"] = f"{parent_version}-fork-1"
+            fork_yaml = yaml.dump(parsed, default_flow_style=False, sort_keys=False)
+        else:
+            fork_yaml = yaml.dump({
+                "name": new_name,
+                "version": f"{parent_version}-fork-1",
+                "parent": parent_name,
+            }, default_flow_style=False, sort_keys=False)
+
         return {
             "name": new_name,
-            "parent": parent["name"],
+            "parent": parent_name,
             "version": f"{parent_version}-fork-1",
-            "profile_yaml": parent.get("profile_yaml", ""),
+            "profile_yaml": fork_yaml,
             "tools": [],
             "refs": [],
             "inherited_tools": parent.get("tools", []),

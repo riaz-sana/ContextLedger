@@ -73,6 +73,29 @@ class ConflictResolver:
             "requires_user_decision": True,
         }
 
+    def merge_with_findings(self, parent, fork, findings_backend=None, llm_client=None):
+        """Merge with optional LLM-backed Tier 2 evaluation using real findings.
+
+        If findings_backend and llm_client are provided, Tier 2 conflicts
+        are re-evaluated against held-out findings from findings.db.
+        """
+        result = self.merge(parent, fork)
+        if result["status"] == "evaluation_needed" and findings_backend and llm_client:
+            profile_name = parent.get("name", "")
+            recent_findings = findings_backend.get_findings_for_profile(profile_name, limit=50)
+            for conflict in result.get("conflicts", []):
+                if conflict.get("tier") == 2:
+                    eval_result = self.evaluate_tier2(
+                        conflict["section"],
+                        parent.get(conflict["section"]),
+                        fork.get(conflict["section"]),
+                        profile=parent,
+                        llm_client=llm_client,
+                        recent_findings=recent_findings,
+                    )
+                    conflict["evaluation"] = eval_result
+        return result
+
     def detect_conflicts(
         self, parent_changes: dict, fork_changes: dict
     ) -> list[dict]:

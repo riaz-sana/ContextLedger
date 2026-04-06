@@ -97,9 +97,30 @@ class ProfileWizard:
             "version": "0.1.0",
             "parent": None,
             "domain": domain,
-            "data_source": data_source,
-            "entity_types": entity_types,
-            "cmv_enabled": True,
+            "extraction": {
+                "entities": entity_types,
+                "sources": [data_source],
+                "rules": [],
+            },
+            "synthesis": {
+                "dag": {
+                    "nodes": [
+                        {"id": "extract_entities", "type": "extraction", "depends_on": []},
+                        {"id": "build_relationships", "type": "reasoning", "depends_on": ["extract_entities"]},
+                        {"id": "synthesise_findings", "type": "synthesis", "depends_on": ["build_relationships"]},
+                    ]
+                }
+            },
+            "session_context": {
+                "mode": "skill_versioning",
+                "cmv_enabled": True,
+                "trim_threshold": 0.3,
+                "memory_tiers": {
+                    "immediate_turns": 10,
+                    "synthesis_window_days": 7,
+                    "archival": True,
+                },
+            },
             "created_at": now,
             "updated_at": now,
         }
