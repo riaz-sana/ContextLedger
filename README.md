@@ -324,15 +324,18 @@ python -m contextledger setup
 This automatically:
 1. Creates the global registry (first time only)
 2. Discovers existing skills in your project
-3. Creates `.contextledger/project.yaml` with auto-routing
+3. Creates/updates `.contextledger/project.yaml` with auto-routing
 4. Wires MCP into `.claude/settings.local.json`
 
-Options:
+Second brain is always active (MCP captures sessions). Skill versioning activates when you add skills — no mode flag needed. Safe to re-run anytime:
+
 ```bash
-python -m contextledger setup --mode second-brain     # context capture only, no skills
-python -m contextledger setup --mode skill-versioning  # skills only
-python -m contextledger setup                          # both (default)
-python -m contextledger setup --no-mcp                 # skip MCP wiring
+python -m contextledger setup          # full setup
+python -m contextledger setup --no-mcp # skip MCP wiring
+
+# Add skill versioning to a project that started with just second brain:
+python -m contextledger new my-skill
+python -m contextledger setup          # re-run picks up the new skill
 ```
 
 ### First-time setup with Claude Code Skill

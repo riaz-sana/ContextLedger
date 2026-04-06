@@ -368,27 +368,22 @@ def connect(ctx, interface):
 
 
 @cli.command()
-@click.option("--mode", type=click.Choice(["both", "second-brain", "skill-versioning"]),
-              default="both", help="Operating mode")
 @click.option("--no-mcp", is_flag=True, help="Skip MCP setup")
 @click.pass_context
-def setup(ctx, mode, no_mcp):
+def setup(ctx, no_mcp):
     """Set up ContextLedger for the current project.
 
-    Run this once per project. ContextLedger must already be installed.
-    The global registry (~/.contextledger) is created on first run.
+    Run this once per project. Safe to re-run — skips what's already done.
 
-    This command:
-    1. Ensures the global registry exists (runs init if needed)
-    2. Discovers skills in the current project
-    3. Creates a project manifest (.contextledger/project.yaml)
-    4. Wires MCP into .claude/settings.local.json
+    Second brain mode is always active (MCP captures sessions automatically).
+    Skill versioning activates when you have skills — add them anytime with:
+        python -m contextledger new my-skill
+        python -m contextledger extract --from pipeline.py
 
     Example:
         cd ~/my-project
         python -m contextledger setup
     """
-    import subprocess
     import yaml
 
     home = ctx.obj["CTX_HOME"]
@@ -402,53 +397,67 @@ def setup(ctx, mode, no_mcp):
 
     # --- 2. Discover skills ---
     skills_found = []
-    if mode in ("both", "skill-versioning"):
-        # Search for SKILL.md files
-        claude_skills_dir = os.path.join(os.getcwd(), ".claude", "skills")
-        if os.path.isdir(claude_skills_dir):
-            for entry in os.listdir(claude_skills_dir):
-                skill_path = os.path.join(claude_skills_dir, entry, "SKILL.md")
-                if os.path.isfile(skill_path):
-                    skills_found.append(entry)
+    claude_skills_dir = os.path.join(os.getcwd(), ".claude", "skills")
+    if os.path.isdir(claude_skills_dir):
+        for entry in os.listdir(claude_skills_dir):
+            skill_path = os.path.join(claude_skills_dir, entry, "SKILL.md")
+            if os.path.isfile(skill_path):
+                # Skip the contextledger-setup skill itself
+                if entry == "contextledger-setup":
+                    continue
+                skills_found.append(entry)
 
-        if skills_found:
-            click.echo(f"Found {len(skills_found)} skills: {', '.join(skills_found)}")
-        else:
-            click.echo("No existing skills found.")
-            create = click.confirm("Create a default skill?", default=True)
-            if create:
-                name = click.prompt("Skill name", default="default-skill")
-                ctx.invoke(new_profile, name=name)
-                skills_found.append(name)
+    if skills_found:
+        click.echo(f"Found {len(skills_found)} skills: {', '.join(skills_found)}")
+    else:
+        click.echo("No skills found (second brain mode is still active).")
+        click.echo("Add skills anytime with: python -m contextledger new <name>")
 
-    # --- 3. Create project manifest ---
-    if mode in ("both", "skill-versioning") and skills_found:
-        project_dir = os.path.join(os.getcwd(), ".contextledger")
-        manifest_path = os.path.join(project_dir, "project.yaml")
+    # --- 3. Create/update project manifest ---
+    project_dir = os.path.join(os.getcwd(), ".contextledger")
+    manifest_path = os.path.join(project_dir, "project.yaml")
 
-        if os.path.exists(manifest_path):
-            click.echo(f"Project manifest already exists: {manifest_path}")
-        else:
-            os.makedirs(project_dir, exist_ok=True)
-            project_name = os.path.basename(os.getcwd())
-            manifest = {
-                "name": project_name,
-                "version": "1.0.0",
-                "skills": skills_found,
-                "default_skill": skills_found[0],
-                "fusion_enabled": True,
-                "routes": [],
-            }
-            for skill in skills_found:
+    if os.path.exists(manifest_path):
+        # Update existing manifest with any new skills
+        with open(manifest_path) as f:
+            manifest = yaml.safe_load(f.read()) or {}
+        existing_skills = set(manifest.get("skills", []))
+        new_skills = [s for s in skills_found if s not in existing_skills]
+        if new_skills:
+            manifest.setdefault("skills", []).extend(new_skills)
+            for skill in new_skills:
                 dir_name = skill.replace("-skill", "").replace("_skill", "")
-                manifest["routes"].append({
+                manifest.setdefault("routes", []).append({
                     "skill": skill,
                     "directories": [f"{dir_name}/"],
                     "keywords": [dir_name],
                 })
             with open(manifest_path, "w") as f:
                 yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
-            click.echo(f"Project manifest created: {manifest_path}")
+            click.echo(f"Added {len(new_skills)} new skills to manifest: {', '.join(new_skills)}")
+        else:
+            click.echo(f"Project manifest up to date: {manifest_path}")
+    elif skills_found:
+        os.makedirs(project_dir, exist_ok=True)
+        project_name = os.path.basename(os.getcwd())
+        manifest = {
+            "name": project_name,
+            "version": "1.0.0",
+            "skills": skills_found,
+            "default_skill": skills_found[0],
+            "fusion_enabled": True,
+            "routes": [],
+        }
+        for skill in skills_found:
+            dir_name = skill.replace("-skill", "").replace("_skill", "")
+            manifest["routes"].append({
+                "skill": skill,
+                "directories": [f"{dir_name}/"],
+                "keywords": [dir_name],
+            })
+        with open(manifest_path, "w") as f:
+            yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
+        click.echo(f"Project manifest created: {manifest_path}")
 
     # --- 4. Wire MCP ---
     if not no_mcp:
@@ -482,21 +491,23 @@ def setup(ctx, mode, no_mcp):
     # --- Summary ---
     click.echo("")
     click.echo("--- Setup complete ---")
-    click.echo(f"  Mode: {mode}")
     click.echo(f"  Registry: {home}")
+    click.echo(f"  Second brain: active (MCP captures all sessions)")
     if skills_found:
+        click.echo(f"  Skill versioning: active ({len(skills_found)} skills)")
         click.echo(f"  Skills: {', '.join(skills_found)}")
+    else:
+        click.echo(f"  Skill versioning: not active (no skills yet)")
     if not no_mcp:
         click.echo("  MCP: configured (restart Claude Code to connect)")
     click.echo("")
-
-    if mode == "second-brain":
-        click.echo("Next: restart Claude Code. Sessions are captured automatically.")
-        click.echo("  python -m contextledger query \"what did I find about X\"")
+    click.echo("Next steps:")
+    click.echo("  1. Restart Claude Code (MCP connects on restart)")
+    click.echo("  2. python -m contextledger query \"...\"        # search context")
+    if not skills_found:
+        click.echo("  3. python -m contextledger new my-skill        # add skill versioning")
+        click.echo("  4. python -m contextledger extract --from X.py # import from code")
     else:
-        click.echo("Next steps:")
-        click.echo("  1. Restart Claude Code (MCP connects on restart)")
-        click.echo("  2. python -m contextledger query \"...\"      # search context")
         click.echo("  3. python -m contextledger fork <skill> <new>  # fork for new domain")
         click.echo("  4. python -m contextledger editor              # visual editor")
 
