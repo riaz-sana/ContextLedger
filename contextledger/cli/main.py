@@ -604,28 +604,24 @@ def setup(ctx, no_mcp):
         instructions = f"""
 
 {ctx_marker}
-## ContextLedger — Auto-Capture
+## ContextLedger — Session Capture (MANDATORY)
 
-This project uses ContextLedger for context persistence across sessions.
-The MCP server is connected — you have access to these tools:
+This project uses ContextLedger. The MCP server is connected.
 
-**At the END of every conversation**, call `ctx_ingest` with a summary of what was discussed:
+### CRITICAL: You MUST do these two things every session:
+
+1. **START of conversation**: Call `ctx_query` with the user's first message to check for relevant prior context. Surface anything useful.
+
+2. **END of conversation** (before your final response): Call `ctx_ingest` with the session content:
 ```
-ctx_ingest({{"session_id": "<unique-id>", "messages": [<user and assistant messages>]}})
+ctx_ingest('{{"session_id": "session-<timestamp>", "messages": [{{"role": "user", "content": "..."}}, {{"role": "assistant", "content": "..."}}]}}')
 ```
+Include the key user messages and your key responses. This is how context persists between sessions. If you don't call this, the user loses everything discussed.
 
-**When the user asks about previous work**, use `ctx_query` to search:
-```
-ctx_query("what did we discuss about X")
-```
-
-**Other tools available:**
-- `ctx_grep("pattern")` — search findings by keyword
-- `ctx_status()` — check memory stats
-- `skill_checkout("profile-name")` — switch active skill
-
-These tools are provided by the ContextLedger MCP server. Use them proactively —
-the user expects context to persist between sessions.
+### Other tools — use proactively:
+- `ctx_query("search text")` — search previous sessions. Use this whenever the user references past work.
+- `ctx_grep("pattern")` — keyword search across all findings
+- `ctx_status()` — check what's been captured
 """
         with open(claude_md_path, "a") as f:
             f.write(instructions)
@@ -702,10 +698,17 @@ def extract_cmd(ctx, from_file, output):
 
 @cli.command("import")
 @click.option("--from", "from_file", required=True, help="SKILL.md file to import")
-@click.option("--output", default=None, help="Output path (default: stdout)")
+@click.option("--output", default=None, help="Output path (default: registry)")
 @click.pass_context
 def import_cmd(ctx, from_file, output):
-    """Import a Claude Code skill as a ContextLedger profile."""
+    """Import a Claude Code skill as a ContextLedger profile.
+
+    By default, saves the profile directly to the registry at
+    ~/.contextledger/skills/<name>/profile.yaml and copies the
+    original SKILL.md as a reference doc.
+    """
+    import shutil
+    from pathlib import Path
     from contextledger.skill.extractor import ClaudeSkillImporter
     from contextledger.backends.llm.claude import ClaudeLLMClient
     try:
@@ -719,12 +722,27 @@ def import_cmd(ctx, from_file, output):
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         return
+
     if output:
         with open(output, "w") as f:
             f.write(result)
         click.echo(f"Profile written to {output}")
     else:
-        click.echo(result)
+        # Save to registry
+        import yaml
+        home = ctx.obj["CTX_HOME"]
+        parsed = yaml.safe_load(result) or {}
+        skill_name = parsed.get("name", Path(from_file).parent.name + "-skill")
+        skill_dir = os.path.join(home, "skills", skill_name)
+        os.makedirs(skill_dir, exist_ok=True)
+        with open(os.path.join(skill_dir, "profile.yaml"), "w") as f:
+            f.write(result)
+        # Copy original SKILL.md as reference
+        refs_dir = os.path.join(skill_dir, "refs")
+        os.makedirs(refs_dir, exist_ok=True)
+        shutil.copy2(from_file, os.path.join(refs_dir, "SKILL.md"))
+        click.echo(f"Imported '{skill_name}' to registry at {skill_dir}")
+        click.echo(f"Original SKILL.md saved as {os.path.join(refs_dir, 'SKILL.md')}")
 
 
 @cli.command()
