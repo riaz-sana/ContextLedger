@@ -64,7 +64,7 @@ function App() {
       <div className="header">
         <h1>ContextLedger</h1>
         <div className="tabs">
-          {['profiles','dag','diff','context'].map(t => (
+          {['profiles','dag','history','diff','context'].map(t => (
             <button key={t} className={`tab ${tab===t?'active':''}`} onClick={()=>setTab(t)}>
               {t.charAt(0).toUpperCase()+t.slice(1)}
             </button>
@@ -74,6 +74,7 @@ function App() {
       <div className="content">
         {tab==='profiles' && <ProfilesTab/>}
         {tab==='dag' && <DagTab/>}
+        {tab==='history' && <HistoryTab/>}
         {tab==='diff' && <DiffTab/>}
         {tab==='context' && <ContextTab/>}
       </div>
@@ -170,6 +171,68 @@ function DagTab() {
         <span><span className="badge badge-synthesis">synthesis</span></span>
         <span><span className="badge badge-filter">filter</span></span>
       </div>
+    </div>
+  );
+}
+
+function HistoryTab() {
+  const cyRef = useRef(null);
+  const containerRef = useRef(null);
+  const [nodeCount, setNodeCount] = useState(0);
+
+  const loadHistory = () => {
+    if(!containerRef.current) return;
+    fetch(`${API}/api/cmv/history`).then(r=>r.json()).then(d=>{
+      const colors = {snapshot:'#1f6feb',branch:'#d29922',trim:'#238636'};
+      const elements = [
+        ...d.nodes.map(n=>({
+          data:{id:n.id, label:`${n.type}\n${n.id.slice(0,8)}\n${n.token_count} chars`},
+          style:{'background-color':colors[n.type]||'#8b949e'},
+        })),
+        ...d.edges.map(e=>({data:{source:e.source,target:e.target}})),
+      ];
+      if(cyRef.current) cyRef.current.destroy();
+      cyRef.current = cytoscape({
+        container: containerRef.current,
+        elements,
+        style: [
+          {selector:'node',style:{'label':'data(label)','color':'#c9d1d9','text-valign':'center','text-wrap':'wrap','font-size':'11px','width':140,'height':50,'shape':'roundrectangle','text-halign':'center'}},
+          {selector:'edge',style:{'width':2,'line-color':'#30363d','target-arrow-color':'#58a6ff','target-arrow-shape':'triangle','curve-style':'bezier'}},
+        ],
+        layout:{name:'breadthfirst',directed:true,padding:30,spacingFactor:1.5},
+      });
+      setNodeCount(d.nodes.length);
+    });
+  };
+
+  useEffect(()=>{loadHistory();},[]);
+
+  const addSnapshot = () => {
+    fetch(`${API}/api/cmv/snapshot`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:[
+        {role:'user',content:'Test message '+Date.now()},
+        {role:'assistant',content:'Test response'},
+      ]}),
+    }).then(()=>loadHistory());
+  };
+
+  return (
+    <div>
+      <div style={{display:'flex',gap:8,marginBottom:16,alignItems:'center'}}>
+        <h2 style={{color:'#f0f6fc',margin:0}}>Session History (CMV)</h2>
+        <span className="meta">{nodeCount} nodes</span>
+        <button className="btn btn-primary" onClick={addSnapshot}>+ Snapshot</button>
+        <button className="btn" onClick={loadHistory}>Refresh</button>
+      </div>
+      <div id="dag-canvas" ref={containerRef} style={{height:500}}></div>
+      <div style={{marginTop:8,display:'flex',gap:16,fontSize:12}}>
+        <span><span className="badge badge-extraction">snapshot</span></span>
+        <span><span className="badge badge-reasoning">branch</span></span>
+        <span><span className="badge badge-synthesis">trim</span></span>
+      </div>
+      {nodeCount===0 && <div className="empty" style={{marginTop:16}}>No session history yet. Click "+ Snapshot" to create one, or ingest sessions via MCP.</div>}
     </div>
   );
 }

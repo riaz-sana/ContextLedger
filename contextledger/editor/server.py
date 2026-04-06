@@ -23,10 +23,28 @@ import yaml
 
 from contextledger.skill.parser import ProfileParser
 from contextledger.merge.resolver import ConflictResolver
+from contextledger.memory.cmv import CMVEngine
 
 app = FastAPI(title="ContextLedger Editor", version="0.1.0")
 parser = ProfileParser()
 resolver = ConflictResolver()
+
+# Shared CMV engine for session history visualization
+_cmv_engine: CMVEngine | None = None
+
+
+def get_cmv_engine() -> CMVEngine:
+    """Get or create the shared CMV engine."""
+    global _cmv_engine
+    if _cmv_engine is None:
+        _cmv_engine = CMVEngine()
+    return _cmv_engine
+
+
+def set_cmv_engine(engine: CMVEngine):
+    """Set the CMV engine (used by MCP server to share state)."""
+    global _cmv_engine
+    _cmv_engine = engine
 
 UI_DIR = Path(__file__).parent / "ui"
 
@@ -163,6 +181,54 @@ def get_status():
         "total_profiles": len(names),
         "profiles": names,
     }
+
+
+@app.get("/api/cmv/history")
+def get_cmv_history():
+    """Get CMV session history as a graph of nodes and edges."""
+    engine = get_cmv_engine()
+    all_nodes = engine.list_nodes()
+
+    nodes = []
+    edges = []
+    for n in all_nodes:
+        node_type = n.get("type", "snapshot")
+        nodes.append({
+            "id": n["id"],
+            "type": node_type,
+            "label": f"{node_type} ({n['id'][:8]})",
+            "timestamp": n.get("timestamp", ""),
+            "token_count": n.get("token_count", 0),
+            "orientation": n.get("orientation"),
+            "reduction_pct": n.get("reduction_pct"),
+        })
+        if n.get("parent_id"):
+            edges.append({"source": n["parent_id"], "target": n["id"]})
+
+    return {"nodes": nodes, "edges": edges}
+
+
+@app.post("/api/cmv/snapshot")
+def create_snapshot(body: dict):
+    """Create a CMV snapshot from a session log (for testing)."""
+    engine = get_cmv_engine()
+    messages = body.get("messages", [])
+    if not messages:
+        raise HTTPException(400, "messages list required")
+    snapshot_id = engine.snapshot({"messages": messages})
+    return {"id": snapshot_id, "type": "snapshot"}
+
+
+@app.post("/api/cmv/branch/{snapshot_id}")
+def create_branch(snapshot_id: str, body: dict = None):
+    """Create a branch from a snapshot (for testing)."""
+    engine = get_cmv_engine()
+    orientation = (body or {}).get("orientation")
+    try:
+        branch_id = engine.branch(snapshot_id, orientation=orientation)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return {"id": branch_id, "type": "branch"}
 
 
 def run_editor(port: int = 7432, no_browser: bool = False):

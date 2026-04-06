@@ -25,11 +25,14 @@ class CMVEngine:
         Stores the messages, sets parent_id to current head, then advances head.
         """
         node_id = str(uuid4())
+        messages = deepcopy(session_log["messages"])
         node = {
             "id": node_id,
-            "messages": deepcopy(session_log["messages"]),
+            "type": "snapshot",
+            "messages": messages,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "parent_id": self._head,
+            "token_count": sum(len(m.get("content", "")) for m in messages),
         }
         self._nodes[node_id] = node
         self._head = node_id
@@ -44,13 +47,16 @@ class CMVEngine:
             raise ValueError(f"Snapshot {snapshot_id} does not exist")
 
         parent = self._nodes[snapshot_id]
+        messages = deepcopy(parent["messages"])
         node_id = str(uuid4())
         node = {
             "id": node_id,
-            "messages": deepcopy(parent["messages"]),
+            "type": "branch",
+            "messages": messages,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "parent_id": snapshot_id,
             "orientation": orientation,
+            "token_count": sum(len(m.get("content", "")) for m in messages),
         }
         self._nodes[node_id] = node
         return node_id
@@ -60,13 +66,17 @@ class CMVEngine:
         node = self._nodes[snapshot_id]
         trimmer = Trimmer()
         trimmed = trimmer.trim_session({"messages": node["messages"]})
+        messages = trimmed["messages"]
 
         node_id = str(uuid4())
         new_node = {
             "id": node_id,
-            "messages": trimmed["messages"],
+            "type": "trim",
+            "messages": messages,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "parent_id": snapshot_id,
+            "token_count": sum(len(m.get("content", "")) for m in messages),
+            "reduction_pct": trimmed.get("reduction_pct", 0.0),
         }
         self._nodes[node_id] = new_node
         return node_id

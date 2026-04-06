@@ -95,3 +95,56 @@ class TestEditorAPI:
         r = client.get("/")
         assert r.status_code == 200
         assert "ContextLedger" in r.text
+
+    def test_cmv_history_empty(self, client):
+        r = client.get("/api/cmv/history")
+        assert r.status_code == 200
+        assert r.json()["nodes"] == []
+        assert r.json()["edges"] == []
+
+    def test_cmv_snapshot_and_history(self, client):
+        # Create a snapshot
+        r = client.post("/api/cmv/snapshot", json={
+            "messages": [
+                {"role": "user", "content": "test message"},
+                {"role": "assistant", "content": "test response"},
+            ]
+        })
+        assert r.status_code == 200
+        snapshot_id = r.json()["id"]
+        assert r.json()["type"] == "snapshot"
+
+        # Verify it appears in history
+        r2 = client.get("/api/cmv/history")
+        nodes = r2.json()["nodes"]
+        assert len(nodes) >= 1
+        node = next(n for n in nodes if n["id"] == snapshot_id)
+        assert node["type"] == "snapshot"
+        assert node["token_count"] > 0
+
+    def test_cmv_branch_and_edges(self, client):
+        # Create snapshot then branch
+        r1 = client.post("/api/cmv/snapshot", json={
+            "messages": [{"role": "user", "content": "base session"}]
+        })
+        snap_id = r1.json()["id"]
+
+        r2 = client.post(f"/api/cmv/branch/{snap_id}", json={
+            "orientation": "testing hypothesis A"
+        })
+        assert r2.status_code == 200
+        branch_id = r2.json()["id"]
+        assert r2.json()["type"] == "branch"
+
+        # Verify edge exists
+        r3 = client.get("/api/cmv/history")
+        edges = r3.json()["edges"]
+        assert any(e["source"] == snap_id and e["target"] == branch_id for e in edges)
+
+    def test_cmv_branch_nonexistent_snapshot(self, client):
+        r = client.post("/api/cmv/branch/nonexistent", json={})
+        assert r.status_code == 404
+
+    def test_cmv_snapshot_requires_messages(self, client):
+        r = client.post("/api/cmv/snapshot", json={})
+        assert r.status_code == 400
