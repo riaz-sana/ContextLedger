@@ -29,9 +29,21 @@ def cli(ctx):
 
 
 @cli.command()
+@click.option("--findings-backend", "fb_flag", default=None,
+              type=click.Choice(["supabase", "turso", "sqlite"], case_sensitive=False),
+              help="Findings backend (skip prompt)")
+@click.option("--supabase-url", default=None, envvar="SUPABASE_URL", help="Supabase URL")
+@click.option("--supabase-key", default=None, envvar="SUPABASE_ANON_KEY", help="Supabase anon key")
+@click.option("--turso-url", default=None, envvar="TURSO_DATABASE_URL", help="Turso URL")
+@click.option("--turso-token", default=None, envvar="TURSO_AUTH_TOKEN", help="Turso token")
 @click.pass_context
-def init(ctx):
-    """Initialize a ContextLedger registry."""
+def init(ctx, fb_flag, supabase_url, supabase_key, turso_url, turso_token):
+    """Initialize a ContextLedger registry.
+
+    Can be run interactively or non-interactively with flags:
+        python -m contextledger init --findings-backend sqlite
+        python -m contextledger init --findings-backend supabase --supabase-url ... --supabase-key ...
+    """
     import subprocess
     import yaml
 
@@ -53,13 +65,16 @@ def init(ctx):
         click.echo("Git repository initialized.")
 
     # --- Findings backend configuration ---
-    click.echo("\n--- Findings Backend (shared, team-accessible) ---")
-    click.echo("Options: supabase (hosted), turso (hosted), sqlite (local only)")
-    backend = click.prompt(
-        "Findings backend",
-        default="sqlite",
-        type=click.Choice(["supabase", "turso", "sqlite"], case_sensitive=False),
-    )
+    if fb_flag:
+        backend = fb_flag
+    else:
+        click.echo("\n--- Findings Backend (shared, team-accessible) ---")
+        click.echo("Options: supabase (hosted), turso (hosted), sqlite (local only)")
+        backend = click.prompt(
+            "Findings backend",
+            default="sqlite",
+            type=click.Choice(["supabase", "turso", "sqlite"], case_sensitive=False),
+        )
 
     config = {
         "memory_backend": "sqlite",
@@ -69,21 +84,33 @@ def init(ctx):
     }
 
     if backend == "supabase":
-        click.echo("\nCreate a free Supabase project at https://supabase.com")
-        click.echo("Then find your URL and anon key in Settings > API")
-        supabase_url = click.prompt("Supabase URL (or Enter to skip)", default="")
-        supabase_key = click.prompt("Supabase anon key (or Enter to skip)", default="", hide_input=True)
-        if supabase_url and supabase_key:
-            config["supabase_url"] = supabase_url
-            config["supabase_key"] = supabase_key
+        s_url = supabase_url or os.environ.get("SUPABASE_URL", "")
+        s_key = supabase_key or os.environ.get("SUPABASE_ANON_KEY", "")
+        if not s_url and not fb_flag:
+            click.echo("\nCreate a free Supabase project at https://supabase.com")
+            click.echo("Then find your URL and anon key in Settings > API")
+            s_url = click.prompt("Supabase URL (or Enter to skip)", default="")
+            s_key = click.prompt("Supabase anon key (or Enter to skip)", default="", hide_input=True)
+        if s_url and s_key:
+            config["supabase_url"] = s_url
+            config["supabase_key"] = s_key
             click.echo("Supabase configured.")
         else:
             config["findings_backend"] = "sqlite"
-            click.echo("Supabase skipped. Using local SQLite. Run 'ctx configure-findings' later.")
+            click.echo("Supabase skipped. Using local SQLite.")
     elif backend == "turso":
-        config["turso_url"] = click.prompt("Turso database URL (libsql://...)")
-        config["turso_token"] = click.prompt("Turso auth token", hide_input=True)
-        click.echo("Turso configured.")
+        t_url = turso_url or os.environ.get("TURSO_DATABASE_URL", "")
+        t_token = turso_token or os.environ.get("TURSO_AUTH_TOKEN", "")
+        if not t_url and not fb_flag:
+            t_url = click.prompt("Turso database URL (libsql://...)")
+            t_token = click.prompt("Turso auth token", hide_input=True)
+        if t_url:
+            config["turso_url"] = t_url
+            config["turso_token"] = t_token
+            click.echo("Turso configured.")
+        else:
+            config["findings_backend"] = "sqlite"
+            click.echo("Turso skipped. Using local SQLite.")
     else:
         click.echo(f"Using local SQLite. Findings at {os.path.join(home, 'findings.db')}")
 
@@ -362,6 +389,50 @@ def merge(ctx, fork_name, parent_name):
 
 
 @cli.command()
+@click.argument("name")
+@click.pass_context
+def show(ctx, name):
+    """Show the fully resolved profile (with inherited values from parent)."""
+    import yaml
+
+    home = ctx.obj["CTX_HOME"]
+    from contextledger.skill.parser import ProfileParser
+    from contextledger.skill.fork import ForkManager
+
+    # Load the profile
+    path = os.path.join(home, "skills", name, "profile.yaml")
+    if not os.path.exists(path):
+        click.echo(f"Profile '{name}' not found.")
+        return
+
+    parser = ProfileParser()
+    with open(path) as f:
+        profile = parser.parse(f.read())
+
+    if profile.get("parent"):
+        # Build registry of all profiles for resolution
+        mgr = ForkManager()
+        registry = {}
+        skills_dir = os.path.join(home, "skills")
+        if os.path.isdir(skills_dir):
+            for entry in os.listdir(skills_dir):
+                p_path = os.path.join(skills_dir, entry, "profile.yaml")
+                if os.path.isfile(p_path):
+                    with open(p_path) as f:
+                        registry[entry] = parser.parse(f.read())
+        try:
+            resolved = mgr.resolve(profile, registry)
+            click.echo(f"# Resolved profile: {name} (inherits from {profile['parent']})\n")
+            click.echo(yaml.dump(resolved, default_flow_style=False, sort_keys=False))
+        except (KeyError, ValueError) as e:
+            click.echo(f"Could not resolve: {e}")
+            click.echo(f"\n# Raw profile:\n")
+            click.echo(yaml.dump(profile, default_flow_style=False, sort_keys=False))
+    else:
+        click.echo(yaml.dump(profile, default_flow_style=False, sort_keys=False))
+
+
+@cli.command()
 @click.argument("text")
 @click.pass_context
 def query(ctx, text):
@@ -410,10 +481,52 @@ def status(ctx):
     if os.path.exists(active_file):
         with open(active_file) as f:
             active = f.read().strip()
+    # Check MCP config
+    mcp_status = "not configured"
+    mcp_json = os.path.join(os.getcwd(), ".mcp.json")
+    if os.path.exists(mcp_json):
+        import json
+        with open(mcp_json) as f:
+            try:
+                mcp_data = json.load(f)
+                if "contextledger" in mcp_data.get("mcpServers", {}):
+                    mcp_status = "configured (.mcp.json)"
+            except json.JSONDecodeError:
+                mcp_status = ".mcp.json exists but invalid"
+    else:
+        mcp_status = "not configured (run: python -m contextledger setup)"
+
+    # Check enterprise restrictions
+    enterprise_note = ""
+    remote_settings = os.path.expanduser("~/.claude/remote-settings.json")
+    if os.path.exists(remote_settings):
+        import json
+        with open(remote_settings) as f:
+            try:
+                rs = json.load(f)
+                if rs.get("allowManagedHooksOnly"):
+                    enterprise_note = "\n  ⚠ Enterprise: hooks blocked (allowManagedHooksOnly)"
+                allowed = rs.get("allowedMcpServers", [])
+                if allowed and "contextledger" not in allowed:
+                    enterprise_note += "\n  ⚠ Enterprise: contextledger not in MCP allowlist"
+                    enterprise_note += "\n    Request IT to add 'contextledger' to allowedMcpServers"
+            except json.JSONDecodeError:
+                pass
+
+    # Check .env
+    env_status = "not found"
+    global_env = os.path.join(home, ".env")
+    if os.path.exists(global_env):
+        env_status = global_env
+
     click.echo("ContextLedger status")
     click.echo(f"  Home: {home}")
     click.echo(f"  Profiles: {count}")
     click.echo(f"  Active: {active or 'none'}")
+    click.echo(f"  MCP: {mcp_status}")
+    click.echo(f"  Global .env: {env_status}")
+    if enterprise_note:
+        click.echo(enterprise_note)
 
 
 @cli.command()
@@ -563,9 +676,37 @@ def setup(ctx, no_mcp):
 
     # --- 4. Wire MCP ---
     if not no_mcp:
-        settings_path = os.path.join(os.getcwd(), ".claude", "settings.local.json")
         import json
+        import sys
 
+        python_path = sys.executable
+        mcp_entry = {
+            "command": python_path,
+            "args": ["-m", "contextledger.mcp.mcp_server"],
+            "env": {"CTX_HOME": home},
+        }
+
+        # Write .mcp.json in project root (the only reliable location)
+        mcp_json_path = os.path.join(os.getcwd(), ".mcp.json")
+        mcp_config = {}
+        if os.path.exists(mcp_json_path):
+            with open(mcp_json_path) as f:
+                try:
+                    mcp_config = json.load(f)
+                except json.JSONDecodeError:
+                    mcp_config = {}
+
+        mcp_servers = mcp_config.setdefault("mcpServers", {})
+        if "contextledger" in mcp_servers:
+            click.echo("MCP already configured in .mcp.json")
+        else:
+            mcp_servers["contextledger"] = mcp_entry
+            with open(mcp_json_path, "w") as f:
+                json.dump(mcp_config, f, indent=2)
+            click.echo(f"MCP server written to {mcp_json_path}")
+
+        # Auto-approve project MCP servers in settings.local.json
+        settings_path = os.path.join(os.getcwd(), ".claude", "settings.local.json")
         settings = {}
         if os.path.exists(settings_path):
             with open(settings_path) as f:
@@ -574,21 +715,12 @@ def setup(ctx, no_mcp):
                 except json.JSONDecodeError:
                     settings = {}
 
-        mcp_servers = settings.setdefault("mcpServers", {})
-        if "contextledger" in mcp_servers:
-            click.echo("MCP already configured.")
-        else:
-            import sys
-            python_path = sys.executable
-            mcp_servers["contextledger"] = {
-                "command": python_path,
-                "args": ["-m", "contextledger.mcp.mcp_server"],
-                "env": {"CTX_HOME": home},
-            }
+        if not settings.get("enableAllProjectMcpServers"):
+            settings["enableAllProjectMcpServers"] = True
             os.makedirs(os.path.dirname(settings_path), exist_ok=True)
             with open(settings_path, "w") as f:
                 json.dump(settings, f, indent=2)
-            click.echo(f"MCP configured in {settings_path}")
+            click.echo("Auto-approved project MCP servers in settings.local.json")
 
     # --- 5. Add ContextLedger instructions to CLAUDE.md ---
     claude_md_path = os.path.join(os.getcwd(), "CLAUDE.md")
@@ -675,6 +807,81 @@ Include the key user messages and your key responses. This is how context persis
         click.echo("  4. python -m contextledger editor              # visual editor")
 
 
+@cli.command()
+@click.option("--file", "file_path", default=None, help="JSON file with session log")
+@click.option("--message", "-m", default=None, help="Quick text to ingest as a finding")
+@click.pass_context
+def ingest(ctx, file_path, message):
+    """Manually ingest a session or finding into ContextLedger.
+
+    Fallback for when MCP is unavailable (enterprise, offline, etc.).
+
+    Examples:
+        python -m contextledger ingest -m "Found SQL injection in /api/users"
+        python -m contextledger ingest --file session.json
+        echo '{"messages":[...]}' | python -m contextledger ingest
+    """
+    import json
+    import sys
+    from datetime import datetime, timezone
+
+    home = ctx.obj["CTX_HOME"]
+
+    if message:
+        # Quick ingest: single finding as a session
+        session = {
+            "session_id": f"manual-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}",
+            "messages": [
+                {"role": "user", "content": "Manual capture"},
+                {"role": "assistant", "content": message},
+            ],
+        }
+    elif file_path:
+        with open(file_path) as f:
+            session = json.load(f)
+    elif not sys.stdin.isatty():
+        session = json.load(sys.stdin)
+    else:
+        click.echo("Provide a message (-m), file (--file), or pipe JSON to stdin.", err=True)
+        return
+
+    if "session_id" not in session:
+        session["session_id"] = f"manual-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+
+    from contextledger.backends.embedding.factory import get_embedding_backend, EmbeddingBackendNotAvailable
+    from contextledger.backends.storage.sqlite import SQLiteStorageBackend
+    from contextledger.mcp.server import ContextLedgerMCP
+
+    try:
+        embedding = get_embedding_backend()
+    except EmbeddingBackendNotAvailable as e:
+        click.echo(str(e), err=True)
+        return
+
+    storage = SQLiteStorageBackend(os.path.join(home, "memory.db"))
+
+    # Load findings backend from config
+    findings_backend = None
+    try:
+        import yaml
+        config_path = os.path.join(home, "config.yaml")
+        if os.path.exists(config_path):
+            with open(config_path) as f:
+                config = yaml.safe_load(f.read()) or {}
+            from contextledger.backends.findings.factory import get_findings_backend
+            findings_backend = get_findings_backend(config)
+    except Exception:
+        pass
+
+    server = ContextLedgerMCP(
+        embedding_backend=embedding,
+        storage_backend=storage,
+        findings_backend=findings_backend,
+    )
+    result = server.ctx_ingest(session)
+    click.echo(f"Ingested: {result['signals_extracted']} signals captured")
+
+
 @cli.command("extract")
 @click.option("--from", "from_file", required=True, help="Python file to extract from")
 @click.option("--output", default=None, help="Output path (default: stdout)")
@@ -699,8 +906,9 @@ def extract_cmd(ctx, from_file, output):
 @cli.command("import")
 @click.option("--from", "from_file", required=True, help="SKILL.md file to import")
 @click.option("--output", default=None, help="Output path (default: registry)")
+@click.option("--profile", default=None, help="Target profile name (default: inferred from path)")
 @click.pass_context
-def import_cmd(ctx, from_file, output):
+def import_cmd(ctx, from_file, output, profile):
     """Import a Claude Code skill as a ContextLedger profile.
 
     By default, saves the profile directly to the registry at
@@ -732,7 +940,7 @@ def import_cmd(ctx, from_file, output):
         import yaml
         home = ctx.obj["CTX_HOME"]
         parsed = yaml.safe_load(result) or {}
-        skill_name = parsed.get("name", Path(from_file).parent.name + "-skill")
+        skill_name = profile or parsed.get("name", Path(from_file).parent.name + "-skill")
         skill_dir = os.path.join(home, "skills", skill_name)
         os.makedirs(skill_dir, exist_ok=True)
         with open(os.path.join(skill_dir, "profile.yaml"), "w") as f:
