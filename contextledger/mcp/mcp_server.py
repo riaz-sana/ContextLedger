@@ -152,5 +152,9 @@ def ctx_project_status() -> str:
     return json.dumps(_engine.ctx_project_status())
 
 
-if __name__ == "__main__":
+def main():
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()

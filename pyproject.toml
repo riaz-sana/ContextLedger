@@ -6,12 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "contextledger"
 version = "0.1.0"
 description = "Universal context layer and skill versioning platform for AI interfaces"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 dependencies = [
     "click>=8.0",
     "pyyaml>=6.0",
     "gitpython>=3.1",
-    "sentence-transformers>=3.0",
     "anthropic>=0.40",
     "mcp>=1.0",
 ]
@@ -21,6 +20,7 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
 ]
+jina = ["sentence-transformers>=3.0"]
 openai = ["openai>=1.0"]
 postgres = ["psycopg2-binary>=2.9"]
 supabase = ["supabase"]
@@ -30,7 +30,7 @@ langchain = ["langchain-core"]
 
 [project.scripts]
 ctx = "contextledger.cli.main:cli"
-ctx-mcp = "contextledger.mcp.mcp_server:mcp.run"
+ctx-mcp = "contextledger.mcp.mcp_server:main"
 
 [tool.setuptools.packages.find]
 include = ["contextledger*"]
