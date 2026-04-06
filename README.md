@@ -303,6 +303,27 @@ from one to surface when querying another.
 
 ---
 
+## Automated Setup via Claude Code Skill
+
+If you use Claude Code, the fastest way to set up ContextLedger is the built-in skill:
+
+```
+/contextledger-setup
+```
+
+This runs an interactive setup that:
+1. Verifies installation
+2. Asks you to choose an embedding backend (with privacy explanation)
+3. Initialises the registry and findings backend
+4. Discovers existing skills in your project
+5. Creates a project manifest with auto-routing
+6. Configures MCP for Claude Code
+7. Verifies API keys
+
+The skill file is at `.claude/skills/contextledger-setup/SKILL.md`.
+
+---
+
 ## Connecting AI Interfaces via MCP
 
 Configure once per interface, then ingestion is automatic.
