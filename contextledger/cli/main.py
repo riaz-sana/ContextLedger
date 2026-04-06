@@ -28,6 +28,12 @@ def cli(ctx):
     ctx.obj["CTX_HOME"] = ctx_home
 
 
+def _get_registry(ctx_home: str):
+    """Get the Git-backed registry for the given CTX_HOME."""
+    from contextledger.backends.registry.git_local import GitLocalRegistryBackend
+    return GitLocalRegistryBackend(repo_path=ctx_home)
+
+
 @cli.command()
 @click.option("--findings-backend", "fb_flag", default=None,
               type=click.Choice(["supabase", "turso", "sqlite"], case_sensitive=False),
@@ -248,11 +254,9 @@ def new_profile(ctx, name):
     }
     profile_yaml = _yaml.dump(profile_data, default_flow_style=False, sort_keys=False)
 
-    skill_dir = os.path.join(home, "skills", name)
-    os.makedirs(skill_dir, exist_ok=True)
-    with open(os.path.join(skill_dir, "profile.yaml"), "w") as f:
-        f.write(profile_yaml)
-    click.echo(f"Created profile: {name}")
+    registry = _get_registry(home)
+    registry.save_profile({"name": name, "version": "1.0.0", "profile_yaml": profile_yaml})
+    click.echo(f"Created profile: {name} (git commit created)")
 
 
 @cli.command("list")
@@ -298,41 +302,61 @@ def checkout(ctx, name):
 def fork(ctx, parent, child):
     """Fork a skill profile."""
     home = ctx.obj["CTX_HOME"]
-    parent_dir = os.path.join(home, "skills", parent)
-    if not os.path.exists(parent_dir):
+    registry = _get_registry(home)
+    parent_profile = registry.get_profile(parent)
+    if not parent_profile:
         click.echo(f"Parent profile '{parent}' not found.")
         return
-    child_dir = os.path.join(home, "skills", child)
-    os.makedirs(child_dir, exist_ok=True)
-    fork_yaml = f"name: {child}\nversion: 1.0.0-fork-1\nparent: {parent}\n"
-    with open(os.path.join(child_dir, "profile.yaml"), "w") as f:
-        f.write(fork_yaml)
-    click.echo(f"Forked {parent} -> {child}")
+    forked = registry.fork_profile(parent, child)
+    click.echo(f"Forked {parent} -> {child} (git commit created)")
+    click.echo(f"  Version: {forked.get('version', '?')}")
+    click.echo(f"  Parent: {parent}")
 
 
 @cli.command()
 @click.argument("a")
 @click.argument("b")
+@click.option("--base", default=None, help="Git base ref (for CI/Actions)")
+@click.option("--head", default=None, help="Git head ref (for CI/Actions)")
 @click.pass_context
-def diff(ctx, a, b):
-    """Diff two skill profiles."""
+def diff(ctx, a, b, base, head):
+    """Diff two skill profiles.
+
+    Positional args: diff <profile-a> <profile-b>
+    For GitHub Actions: diff <profile> <profile> --base origin/main --head HEAD
+    """
     home = ctx.obj["CTX_HOME"]
-    click.echo(f"Diff: {a} vs {b}")
-    profiles = {}
-    for name in [a, b]:
-        path = os.path.join(home, "skills", name, "profile.yaml")
-        if os.path.exists(path):
-            with open(path) as f:
-                profiles[name] = f.read()
-            click.echo(f"  {name}: found")
+
+    if base and head:
+        # Git-based diff for CI/Actions
+        import subprocess
+        click.echo(f"Git diff: {a} ({base}..{head})")
+        profile_path = os.path.join(home, "skills", a, "profile.yaml")
+        result = subprocess.run(
+            ["git", "diff", f"{base}...{head}", "--", profile_path],
+            cwd=home, capture_output=True, text=True,
+        )
+        if result.stdout:
+            click.echo(result.stdout)
         else:
-            click.echo(f"  {name}: not found")
-            return
-    # Parse and compare
+            click.echo("  No changes detected.")
+        return
+
+    click.echo(f"Diff: {a} vs {b}")
+    registry = _get_registry(home)
+    profile_a = registry.get_profile(a)
+    profile_b = registry.get_profile(b)
+    if not profile_a:
+        click.echo(f"  {a}: not found")
+        return
+    if not profile_b:
+        click.echo(f"  {b}: not found")
+        return
+
     from contextledger.skill.parser import ProfileParser
     parser = ProfileParser()
-    pa = parser.parse(profiles[a])
-    pb = parser.parse(profiles[b])
+    pa = parser.parse(profile_a["profile_yaml"])
+    pb = parser.parse(profile_b["profile_yaml"])
     for key in sorted(set(list(pa.keys()) + list(pb.keys()))):
         if pa.get(key) != pb.get(key):
             click.echo(f"  changed: {key}")
@@ -363,10 +387,11 @@ def merge(ctx, fork_name, parent_name):
     if result["status"] == "merged":
         import yaml
         merged = result["merged"]
-        parent_path = os.path.join(home, "skills", parent_name, "profile.yaml")
-        with open(parent_path, "w") as f:
-            yaml.dump(merged, f, default_flow_style=False, sort_keys=False)
-        click.echo(f"Merged successfully. '{parent_name}' profile updated.")
+        merged_yaml = yaml.dump(merged, default_flow_style=False, sort_keys=False)
+        registry = _get_registry(home)
+        version = merged.get("version", "1.0.0")
+        registry.save_profile({"name": parent_name, "version": version, "profile_yaml": merged_yaml})
+        click.echo(f"Merged successfully. '{parent_name}' profile updated (git commit created).")
 
     elif result["status"] == "evaluation_needed":
         click.echo("Tier 2 conflicts detected — evaluation needed:")
@@ -555,6 +580,15 @@ def setup(ctx, no_mcp):
         python -m contextledger setup
     """
     import yaml
+
+    # Detect if running inside the ContextLedger source repo
+    if os.path.exists(os.path.join(os.getcwd(), "contextledger", "core", "protocols.py")):
+        click.echo(
+            "You're inside the ContextLedger source repo.\n"
+            "Run 'python -m contextledger setup' from your actual project directory.",
+            err=True,
+        )
+        return
 
     home = ctx.obj["CTX_HOME"]
 
@@ -776,8 +810,8 @@ Include the key user messages and your key responses. This is how context persis
             # The Stop hook fires when Claude finishes responding.
             # We use it to remind Claude to ingest the session.
             hooks["Stop"] = [{
-                "type": "command",
-                "command": "echo '[ContextLedger] Session capture available via ctx_ingest MCP tool'",
+                "matcher": "",
+                "hooks": [{"type": "command", "command": "echo '[ContextLedger] Session capture available via ctx_ingest MCP tool'"}],
             }]
             with open(settings_path, "w") as f:
                 json.dump(settings, f, indent=2)

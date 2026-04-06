@@ -98,12 +98,17 @@ class ContextLedgerMCP:
             results.extend(self._synthesis.query(query))
         if "archival" in tiers:
             emb = self._embedding.encode(query)
-            results.extend(self._archival.search(emb, limit=10))
+            if self._storage:
+                results.extend(self._storage.search(emb, limit=10))
+            else:
+                results.extend(self._archival.search(emb, limit=10))
 
         return results
 
     def ctx_grep(self, pattern: str) -> list:
-        """Search findings by pattern (case-insensitive substring match)."""
+        """Search findings by pattern. Uses storage backend if available."""
+        if self._storage and hasattr(self._storage, "search_by_content"):
+            return self._storage.search_by_content(pattern)
         return [
             f for f in self._findings
             if pattern.lower() in f.get("content", "").lower()

@@ -55,8 +55,10 @@ def get_findings_backend(config: Optional[Dict[str, Any]] = None):
 
         return TursoFindingsBackend(url=url, token=token)
 
-    # Default: SQLite
-    db_path = (config or {}).get("db_path", "findings.db")
+    # Default: SQLite in CTX_HOME
+    ctx_home = os.environ.get("CTX_HOME", os.path.expanduser("~/.contextledger"))
+    default_db = os.path.join(ctx_home, "findings.db")
+    db_path = (config or {}).get("db_path", default_db)
     from contextledger.backends.findings.sqlite import SQLiteFindingsBackend
 
     return SQLiteFindingsBackend(db_path=db_path)

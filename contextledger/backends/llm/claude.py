@@ -10,7 +10,7 @@ import os
 class ClaudeLLMClient:
     """LLMClient backed by Claude via the Anthropic API."""
 
-    def __init__(self, api_key: str = None, model: str = "claude-sonnet-4-20250514"):
+    def __init__(self, api_key: str = None, model: str = "claude-sonnet-4-5"):
         # Load API key from global and local .env
         try:
             from dotenv import load_dotenv

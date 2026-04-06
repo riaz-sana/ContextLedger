@@ -98,6 +98,14 @@ class SQLiteStorageBackend:
         self._conn.commit()
         return cursor.rowcount > 0
 
+    def search_by_content(self, pattern: str) -> List[dict]:
+        """Search units by content substring (case-insensitive)."""
+        rows = self._conn.execute(
+            "SELECT * FROM memory_units WHERE content LIKE ?",
+            (f"%{pattern}%",),
+        ).fetchall()
+        return [self._row_to_dict(row) for row in rows]
+
     def list_by_profile(self, profile_name: str) -> List[dict]:
         rows = self._conn.execute(
             "SELECT * FROM memory_units WHERE profile_name=?", (profile_name,)
