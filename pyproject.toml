@@ -11,6 +11,9 @@ dependencies = [
     "click>=8.0",
     "pyyaml>=6.0",
     "gitpython>=3.1",
+    "sentence-transformers>=3.0",
+    "anthropic>=0.40",
+    "mcp>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -18,15 +21,12 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
 ]
-jina = ["sentence-transformers>=3.0"]
 openai = ["openai>=1.0"]
 postgres = ["psycopg2-binary>=2.9"]
 supabase = ["supabase"]
 turso = ["libsql-client"]
 editor = ["fastapi", "uvicorn"]
 langchain = ["langchain-core"]
-llm = ["anthropic>=0.40"]
-mcp = ["mcp>=1.0"]
 
 [project.scripts]
 ctx = "contextledger.cli.main:cli"
