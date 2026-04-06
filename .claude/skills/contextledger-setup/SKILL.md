@@ -86,6 +86,8 @@ ContextLedger has two modes that can run simultaneously. Ask the user:
 
 ## Step 5 — Discover Skills
 
+**Important:** If you're running inside the ContextLedger repo itself (check for `contextledger/core/protocols.py` in cwd), STOP here. ContextLedger's own repo is not a user project — don't create a project manifest or register skills for it. Tell the user: "You're inside the ContextLedger source repo. To use ContextLedger, cd into your actual project and run this skill there."
+
 Look for existing skill definitions in the project:
 ```bash
 find . -path ./.venv -prune -o -name "SKILL.md" -print 2>/dev/null
@@ -99,7 +101,7 @@ If nothing found, create a starter: `python -m contextledger new default-skill`
 
 ## Step 6 — Project Manifest
 
-Skip this step if user chose "second brain only" in Step 4.
+Skip this step if user chose "second brain only" in Step 4, or if you're inside the ContextLedger source repo itself.
 
 ```bash
 python -m contextledger project init
