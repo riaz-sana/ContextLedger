@@ -120,7 +120,22 @@ Add a `contextledger` entry to `mcpServers` — use the absolute path to the ven
 
 Merge into existing settings — never overwrite other MCP server entries.
 
-## Step 8 — Verify API Keys
+## Step 8 — Session Capture
+
+`ctx setup` automatically adds two things that enable session capture:
+
+1. **CLAUDE.md instructions** — tells Claude to call `ctx_ingest` at the end of every conversation and to use `ctx_query` when the user asks about previous work. Check that CLAUDE.md contains the `<!-- contextledger:auto-capture -->` marker.
+
+2. **Stop hook** — a reminder in `.claude/settings.local.json` that fires after each response.
+
+If the user ran `ctx setup`, these should already be in place. Verify:
+```bash
+grep "contextledger:auto-capture" CLAUDE.md 2>/dev/null && echo "CLAUDE.md: OK" || echo "CLAUDE.md: MISSING"
+```
+
+If missing, re-run `python -m contextledger setup` — it adds them idempotently.
+
+## Step 9 — Verify API Keys
 
 Check `.env` for required keys:
 - `ANTHROPIC_API_KEY` — always needed (DAG execution, Tier 2 merge evaluation)
@@ -132,7 +147,7 @@ Check `.env` for required keys:
 
 Report which are present and which are missing. For missing ones, tell the user exactly what to add to `.env`.
 
-## Step 9 — Final Check and Next Steps
+## Step 10 — Final Check and Next Steps
 
 ```bash
 python -m contextledger status

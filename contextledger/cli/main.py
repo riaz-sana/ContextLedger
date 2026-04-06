@@ -590,6 +590,71 @@ def setup(ctx, no_mcp):
                 json.dump(settings, f, indent=2)
             click.echo(f"MCP configured in {settings_path}")
 
+    # --- 5. Add ContextLedger instructions to CLAUDE.md ---
+    claude_md_path = os.path.join(os.getcwd(), "CLAUDE.md")
+    ctx_marker = "<!-- contextledger:auto-capture -->"
+
+    # Check if instructions already added
+    existing_claude_md = ""
+    if os.path.exists(claude_md_path):
+        with open(claude_md_path) as f:
+            existing_claude_md = f.read()
+
+    if ctx_marker not in existing_claude_md:
+        instructions = f"""
+
+{ctx_marker}
+## ContextLedger — Auto-Capture
+
+This project uses ContextLedger for context persistence across sessions.
+The MCP server is connected — you have access to these tools:
+
+**At the END of every conversation**, call `ctx_ingest` with a summary of what was discussed:
+```
+ctx_ingest({{"session_id": "<unique-id>", "messages": [<user and assistant messages>]}})
+```
+
+**When the user asks about previous work**, use `ctx_query` to search:
+```
+ctx_query("what did we discuss about X")
+```
+
+**Other tools available:**
+- `ctx_grep("pattern")` — search findings by keyword
+- `ctx_status()` — check memory stats
+- `skill_checkout("profile-name")` — switch active skill
+
+These tools are provided by the ContextLedger MCP server. Use them proactively —
+the user expects context to persist between sessions.
+"""
+        with open(claude_md_path, "a") as f:
+            f.write(instructions)
+        click.echo("Added ContextLedger auto-capture instructions to CLAUDE.md")
+    else:
+        click.echo("CLAUDE.md already has ContextLedger instructions.")
+
+    # --- 6. Add hook for auto-capture ---
+    settings_path = os.path.join(os.getcwd(), ".claude", "settings.local.json")
+    if os.path.exists(settings_path):
+        import json
+        with open(settings_path) as f:
+            try:
+                settings = json.load(f)
+            except json.JSONDecodeError:
+                settings = {}
+
+        hooks = settings.setdefault("hooks", {})
+        if "Stop" not in hooks:
+            # The Stop hook fires when Claude finishes responding.
+            # We use it to remind Claude to ingest the session.
+            hooks["Stop"] = [{
+                "type": "command",
+                "command": "echo '[ContextLedger] Session capture available via ctx_ingest MCP tool'",
+            }]
+            with open(settings_path, "w") as f:
+                json.dump(settings, f, indent=2)
+            click.echo("Added Stop hook for session capture reminders.")
+
     # --- Summary ---
     click.echo("")
     click.echo("--- Setup complete ---")
