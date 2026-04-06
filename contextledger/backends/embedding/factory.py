@@ -14,7 +14,11 @@ import os
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    # Load global .env first, then project-local (overrides)
+    _global_env = os.path.join(os.path.expanduser("~/.contextledger"), ".env")
+    if os.path.exists(_global_env):
+        load_dotenv(_global_env)
+    load_dotenv()  # project-local .env overrides
 except ImportError:
     pass
 

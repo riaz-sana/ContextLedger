@@ -7,6 +7,17 @@ query, status, connect, list.
 import os
 import click
 
+# Load global .env from ~/.contextledger/.env (shared across all projects)
+# Then load project-local .env if it exists (overrides global)
+try:
+    from dotenv import load_dotenv
+    _global_env = os.path.join(os.path.expanduser("~/.contextledger"), ".env")
+    if os.path.exists(_global_env):
+        load_dotenv(_global_env)
+    load_dotenv()  # project-local .env overrides
+except ImportError:
+    pass
+
 
 @click.group()
 @click.pass_context
@@ -79,6 +90,52 @@ def init(ctx):
     config_path = os.path.join(home, "config.yaml")
     with open(config_path, "w") as f:
         yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+    # --- Create global .env template ---
+    env_path = os.path.join(home, ".env")
+    if not os.path.exists(env_path):
+        env_template = (
+            "# ContextLedger API keys — loaded globally for all projects\n"
+            "# This file is at ~/.contextledger/.env\n"
+            "#\n"
+            "# Required:\n"
+            "ANTHROPIC_API_KEY=\n"
+            "#\n"
+            "# Embedding backend (pick one):\n"
+            "# JINA_API_KEY=           # for Jina API embeddings\n"
+            "# OPENAI_API_KEY=         # for OpenAI embeddings\n"
+            "# OPENROUTER_API_KEY=     # for OpenRouter embeddings\n"
+            "#\n"
+            "# Findings backend (if using Supabase):\n"
+            "# SUPABASE_URL=\n"
+            "# SUPABASE_ANON_KEY=\n"
+            "#\n"
+            "# Findings backend (if using Turso):\n"
+            "# TURSO_DATABASE_URL=\n"
+            "# TURSO_AUTH_TOKEN=\n"
+        )
+        # Pre-fill from current environment if keys exist
+        for key in ["ANTHROPIC_API_KEY", "JINA_API_KEY", "OPENAI_API_KEY",
+                     "OPENROUTER_API_KEY", "SUPABASE_URL", "SUPABASE_ANON_KEY"]:
+            val = os.environ.get(key, "")
+            if val:
+                env_template = env_template.replace(f"{key}=\n", f"{key}={val}\n")
+                env_template = env_template.replace(f"# {key}=\n", f"{key}={val}\n")
+
+        with open(env_path, "w") as f:
+            f.write(env_template)
+        # Add .env to gitignore
+        gitignore_path = os.path.join(home, ".gitignore")
+        if os.path.exists(gitignore_path):
+            with open(gitignore_path) as f:
+                content = f.read()
+            if ".env" not in content:
+                with open(gitignore_path, "a") as f:
+                    f.write("\n.env\n")
+        click.echo(f"API key template created: {env_path}")
+        click.echo("Edit this file to add your API keys. They're loaded for all projects.")
+    else:
+        click.echo(f"Global .env exists: {env_path}")
 
     click.echo(f"\nContextLedger initialized at {home}")
     click.echo(f"Memory: {config['memory_backend']} ({config.get('memory_db_path', 'remote')})")
@@ -413,7 +470,52 @@ def setup(ctx, no_mcp):
         click.echo("No skills found (second brain mode is still active).")
         click.echo("Add skills anytime with: python -m contextledger new <name>")
 
-    # --- 3. Create/update project manifest ---
+    # --- 3. Register discovered skills in the registry ---
+    if skills_found:
+        skills_dir = os.path.join(home, "skills")
+        registered = 0
+        for skill_name in skills_found:
+            skill_reg_dir = os.path.join(skills_dir, skill_name)
+            if os.path.exists(os.path.join(skill_reg_dir, "profile.yaml")):
+                continue  # already registered
+            # Check if there's a SKILL.md to import
+            skill_md = os.path.join(claude_skills_dir, skill_name, "SKILL.md")
+            if os.path.isfile(skill_md):
+                # Create a basic profile in the registry
+                os.makedirs(skill_reg_dir, exist_ok=True)
+                import yaml as _yaml
+                profile = {
+                    "name": skill_name,
+                    "version": "1.0.0",
+                    "parent": None,
+                    "extraction": {
+                        "entities": ["finding"],
+                        "sources": ["session"],
+                        "rules": [],
+                    },
+                    "synthesis": {
+                        "dag": {
+                            "nodes": [
+                                {"id": "extract_entities", "type": "extraction", "depends_on": []},
+                                {"id": "build_relationships", "type": "reasoning", "depends_on": ["extract_entities"]},
+                                {"id": "synthesise_findings", "type": "synthesis", "depends_on": ["build_relationships"]},
+                            ]
+                        }
+                    },
+                    "session_context": {"mode": "skill_versioning", "cmv_enabled": True},
+                }
+                with open(os.path.join(skill_reg_dir, "profile.yaml"), "w") as f:
+                    _yaml.dump(profile, f, default_flow_style=False, sort_keys=False)
+                # Copy SKILL.md as a reference doc
+                refs_dir = os.path.join(skill_reg_dir, "refs")
+                os.makedirs(refs_dir, exist_ok=True)
+                import shutil
+                shutil.copy2(skill_md, os.path.join(refs_dir, "SKILL.md"))
+                registered += 1
+        if registered:
+            click.echo(f"Registered {registered} new skills in registry at {skills_dir}")
+
+    # --- 4. Create/update project manifest ---
     project_dir = os.path.join(os.getcwd(), ".contextledger")
     manifest_path = os.path.join(project_dir, "project.yaml")
 
