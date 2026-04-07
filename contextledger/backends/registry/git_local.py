@@ -90,35 +90,38 @@ class GitLocalRegistryBackend:
             "parent": parsed.get("parent"),
         }
 
-    def fork_profile(self, parent_name: str, new_name: str) -> dict:
+    def fork_profile(
+        self,
+        parent_name: str,
+        new_name: str,
+        *,
+        backend: str | None = None,
+        domain_config: dict | None = None,
+    ) -> dict:
+        """Fork a profile. Supports three-layer composition (GAP 3).
+
+        Delegates composition logic to ForkManager to avoid duplication.
+        """
+        from contextledger.skill.fork import ForkManager
+
         parent = self.get_profile(parent_name)
         if parent is None:
             raise ValueError(f"Parent profile '{parent_name}' not found")
 
-        parent_yaml = parent["profile_yaml"]
-
-        # Parse, update name and parent, then re-serialize
-        try:
-            parsed = yaml.safe_load(parent_yaml) or {}
-        except yaml.YAMLError:
-            parsed = {}
-
-        parsed["name"] = new_name
-        parsed["parent"] = parent_name
-
-        new_yaml = yaml.dump(parsed, default_flow_style=False, sort_keys=False)
+        mgr = ForkManager()
+        forked = mgr.fork(parent, new_name, backend=backend, domain_config=domain_config)
 
         new_bundle = {
             "name": new_name,
-            "version": parsed.get("version", "1.0.0"),
-            "profile_yaml": new_yaml,
+            "version": forked.get("version", "1.0.0"),
+            "profile_yaml": forked["profile_yaml"],
         }
         self.save_profile(new_bundle)
 
         return {
             "name": new_name,
-            "version": parsed.get("version", "1.0.0"),
-            "profile_yaml": new_yaml,
+            "version": forked.get("version", "1.0.0"),
+            "profile_yaml": forked["profile_yaml"],
             "parent": parent_name,
         }
 

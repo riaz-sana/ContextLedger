@@ -71,8 +71,25 @@ class RegistryBackend(Protocol):
         """Save a skill profile bundle dict. Returns the profile name or ID."""
         ...
 
-    def fork_profile(self, parent_name: str, new_name: str) -> dict:
-        """Fork an existing profile under a new name. Returns the new profile dict."""
+    def fork_profile(
+        self,
+        parent_name: str,
+        new_name: str,
+        *,
+        backend: Optional[str] = None,
+        domain_config: Optional[dict] = None,
+    ) -> dict:
+        """Fork an existing profile under a new name.
+
+        Parameters
+        ----------
+        backend:
+            Optional backend adapter name for composition layer (GAP 3).
+        domain_config:
+            Optional domain-specific overrides for composition layer (GAP 3).
+
+        Returns the new profile dict.
+        """
         ...
 
     def list_versions(self, name: str) -> List[str]:

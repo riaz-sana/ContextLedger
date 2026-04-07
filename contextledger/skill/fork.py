@@ -2,6 +2,12 @@
 
 Implements copy-on-write fork semantics where child profiles
 inherit from parent and only store overrides.
+
+Supports three-layer composition (GAP 3):
+  core → backend adapter → domain config
+
+And section-level inheritance (GAP 1):
+  composition.base + composition.overrides
 """
 
 from __future__ import annotations
@@ -12,12 +18,26 @@ from typing import Any
 class ForkManager:
     """Manages fork creation and inheritance resolution for skill profiles."""
 
-    def fork(self, parent: dict, new_name: str) -> dict:
+    def fork(
+        self,
+        parent: dict,
+        new_name: str,
+        *,
+        backend: str | None = None,
+        domain_config: dict | None = None,
+    ) -> dict:
         """Create a child profile dict from a parent profile.
 
         The child references the parent by name and inherits tools/refs
         by reference (no copying). Only overrides are stored on the child.
         The child's profile_yaml is updated with the new name and parent.
+
+        Parameters
+        ----------
+        backend:
+            Optional backend adapter name to set in the composition layer.
+        domain_config:
+            Optional domain-specific config overrides.
         """
         import yaml
 
@@ -34,13 +54,28 @@ class ForkManager:
             parsed["name"] = new_name
             parsed["parent"] = parent_name
             parsed["version"] = f"{parent_version}-fork-1"
-            fork_yaml = yaml.dump(parsed, default_flow_style=False, sort_keys=False)
         else:
-            fork_yaml = yaml.dump({
+            parsed = {
                 "name": new_name,
                 "version": f"{parent_version}-fork-1",
                 "parent": parent_name,
-            }, default_flow_style=False, sort_keys=False)
+            }
+
+        # GAP 3: three-layer composition support
+        if backend or domain_config:
+            comp = parsed.get("composition", {})
+            comp["base"] = f"{parent_name}:{parent_version}"
+            if backend:
+                backends = parsed.get("backends", {})
+                backends["storage"] = backend
+                parsed["backends"] = backends
+            if domain_config:
+                overrides = comp.get("overrides", {})
+                overrides.update(domain_config)
+                comp["overrides"] = overrides
+            parsed["composition"] = comp
+
+        fork_yaml = yaml.dump(parsed, default_flow_style=False, sort_keys=False)
 
         return {
             "name": new_name,
@@ -56,11 +91,18 @@ class ForkManager:
     def resolve(self, profile: dict, registry: dict, _visited: set | None = None) -> dict:
         """Walk the parent chain and return a fully resolved profile.
 
+        Supports both legacy ``parent:`` inheritance and the newer
+        ``composition:`` block (GAP 1/3).  When ``composition.base``
+        is present, it is used as the parent reference (with optional
+        version pinning).  Section-level overrides from
+        ``composition.overrides`` are applied after the parent merge.
+
         Parameters
         ----------
         profile:
             The profile dict to resolve. May contain a ``parent`` key
-            referencing another profile by name.
+            referencing another profile by name, or a ``composition``
+            block with ``base`` and ``overrides``.
         registry:
             Mapping of ``{profile_name: profile_dict}`` used for
             parent lookups.
@@ -85,7 +127,18 @@ class ForkManager:
             raise ValueError(f"Cycle detected in parent chain: '{profile_name}'")
         _visited.add(profile_name)
 
-        parent_name = profile.get("parent")
+        # Determine parent: composition.base takes precedence over parent field
+        composition = profile.get("composition", {})
+        parent_ref = composition.get("base") or profile.get("parent")
+
+        # Strip version pin from composition base (e.g. "core:1.2" -> "core")
+        parent_name = None
+        pinned_version = None
+        if parent_ref:
+            parts = parent_ref.split(":", 1)
+            parent_name = parts[0]
+            if len(parts) > 1:
+                pinned_version = parts[1]
 
         # Base case: no parent — parse profile_yaml if present, then return.
         if parent_name is None:
@@ -108,10 +161,30 @@ class ForkManager:
             )
 
         parent_profile = registry[parent_name]
+
+        # Warn if version pin doesn't match registry version
+        if pinned_version:
+            import warnings
+            registry_version = parent_profile.get("version", "")
+            if registry_version and not registry_version.startswith(pinned_version):
+                warnings.warn(
+                    f"composition.base pins '{parent_name}:{pinned_version}' "
+                    f"but registry has v{registry_version}",
+                    stacklevel=2,
+                )
+
         resolved_parent = self.resolve(parent_profile, registry, _visited)
 
         # Deep-merge: parent provides base, child overrides.
-        return _deep_merge(resolved_parent, profile)
+        result = _deep_merge(resolved_parent, profile)
+
+        # GAP 1: Apply section-level overrides from composition block
+        section_overrides = composition.get("overrides", {})
+        for section, override_val in section_overrides.items():
+            # Section overrides *replace* the section entirely (not deep-merge)
+            result[section] = override_val
+
+        return result
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:

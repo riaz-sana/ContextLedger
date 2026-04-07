@@ -54,6 +54,28 @@ _engine = ContextLedgerMCP(
 )
 
 
+def _persist_cmv():
+    """Write CMV state to disk so CLI commands (show-lineage, export) can read it."""
+    cmv_dir = os.path.join(_ctx_home, "cmv")
+    os.makedirs(cmv_dir, exist_ok=True)
+    archive_path = os.path.join(cmv_dir, "archive.json")
+
+    # Load existing archive, merge, then save
+    engine = _engine._cmv
+    existing_archive = {}
+    if os.path.exists(archive_path):
+        try:
+            with open(archive_path) as f:
+                existing_archive = json.load(f)
+            engine.import_archive(existing_archive)
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    full_archive = engine.export_archive()
+    with open(archive_path, "w") as f:
+        json.dump(full_archive, f, indent=2)
+
+
 @mcp.tool()
 def ctx_ingest(session_log: str) -> str:
     """Ingest a session log into ContextLedger memory.
@@ -70,6 +92,7 @@ def ctx_ingest(session_log: str) -> str:
     except (json.JSONDecodeError, TypeError):
         return json.dumps({"status": "error", "message": "Invalid JSON"})
     result = _engine.ctx_ingest(data)
+    _persist_cmv()
     return json.dumps(result)
 
 

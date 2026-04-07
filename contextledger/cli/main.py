@@ -298,19 +298,38 @@ def checkout(ctx, name):
 @cli.command()
 @click.argument("parent")
 @click.argument("child")
+@click.option("--backend", default=None, help="Backend adapter for composition layer (GAP 3)")
+@click.option("--domain-config", default=None, type=click.Path(exists=True),
+              help="YAML file with domain-specific overrides (GAP 3)")
 @click.pass_context
-def fork(ctx, parent, child):
-    """Fork a skill profile."""
+def fork(ctx, parent, child, backend, domain_config):
+    """Fork a skill profile.
+
+    Supports three-layer composition:
+      ctx fork core-skill domain-skill --backend filesystem-handler --domain-config ./domain.yaml
+    """
     home = ctx.obj["CTX_HOME"]
     registry = _get_registry(home)
     parent_profile = registry.get_profile(parent)
     if not parent_profile:
         click.echo(f"Parent profile '{parent}' not found.")
         return
-    forked = registry.fork_profile(parent, child)
+
+    # Load domain config if provided
+    domain_cfg = None
+    if domain_config:
+        import yaml as _yaml
+        with open(domain_config) as f:
+            domain_cfg = _yaml.safe_load(f)
+
+    forked = registry.fork_profile(parent, child, backend=backend, domain_config=domain_cfg)
     click.echo(f"Forked {parent} -> {child} (git commit created)")
     click.echo(f"  Version: {forked.get('version', '?')}")
     click.echo(f"  Parent: {parent}")
+    if backend:
+        click.echo(f"  Backend: {backend}")
+    if domain_config:
+        click.echo(f"  Domain config: {domain_config}")
 
 
 @cli.command()
@@ -1211,3 +1230,194 @@ def project_remove_skill(ctx, skill_name):
     with open(path, "w") as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)
     click.echo(f"Removed skill '{skill_name}' from project.")
+
+
+# ---------------------------------------------------------------------------
+# GAP 4: Dependency checking
+# ---------------------------------------------------------------------------
+
+@project.command("check-deps")
+@click.pass_context
+def project_check_deps(ctx):
+    """Validate all declared skill dependencies are satisfied."""
+    import yaml
+
+    home = ctx.obj["CTX_HOME"]
+    skills_dir = os.path.join(home, "skills")
+    if not os.path.isdir(skills_dir):
+        click.echo("No skills found.")
+        return
+
+    from contextledger.skill.parser import ProfileParser
+    from contextledger.skill.deps import check_dependencies
+    parser = ProfileParser()
+
+    # Build registry of all profiles with their versions
+    registry: dict[str, dict] = {}
+    for entry in os.listdir(skills_dir):
+        p_path = os.path.join(skills_dir, entry, "profile.yaml")
+        if os.path.isfile(p_path):
+            with open(p_path) as f:
+                registry[entry] = parser.parse(f.read())
+
+    issues = check_dependencies(registry)
+    if not issues:
+        click.echo("All dependencies satisfied.")
+    else:
+        click.echo(f"Found {len(issues)} dependency issues:")
+        for issue in issues:
+            click.echo(f"  - {issue}")
+
+
+# ---------------------------------------------------------------------------
+# GAP 5: Lineage commands
+# ---------------------------------------------------------------------------
+
+@cli.command("show-lineage")
+@click.argument("skill_name")
+@click.pass_context
+def show_lineage(ctx, skill_name):
+    """Show the snapshot lineage for a skill.
+
+    Example: ctx show-lineage agent-prober-healthcare
+    """
+    from contextledger.memory.cmv import CMVEngine
+
+    # Try loading from persistent CMV storage if available
+    home = ctx.obj["CTX_HOME"]
+    cmv_path = os.path.join(home, "cmv")
+    engine = CMVEngine()
+
+    # Load persisted snapshots if they exist
+    archive_file = os.path.join(cmv_path, "archive.json")
+    if os.path.exists(archive_file):
+        import json
+        with open(archive_file) as f:
+            archive = json.load(f)
+        engine.import_archive(archive)
+
+    lineage = engine.get_lineage(skill_name)
+    if not lineage:
+        click.echo(f"No snapshots linked to skill '{skill_name}'.")
+        return
+
+    click.echo(f"Lineage for {skill_name}:")
+    for node in lineage:
+        version = node.get("skill_version", "?")
+        ts = node.get("timestamp", "?")[:19]
+        nid = node["id"][:8]
+        ntype = node.get("type", "snapshot")
+        click.echo(f"  {nid} | {ntype} | v{version} | {ts} | {node.get('token_count', 0)} tokens")
+
+
+# ---------------------------------------------------------------------------
+# GAP 6: Portable .cmv archive export/import
+# ---------------------------------------------------------------------------
+
+@cli.command("export")
+@click.argument("skill_name")
+@click.option("--no-snapshots", is_flag=True, default=False, help="Exclude CMV snapshots from export")
+@click.option("--output", "-o", default=None, help="Output file path")
+@click.pass_context
+def export_cmd(ctx, skill_name, no_snapshots, output):
+    """Export a skill with its CMV snapshots as a portable archive.
+
+    Example: ctx export agent-prober-healthcare -o ./team-context.cmv
+    """
+    import json
+    import yaml
+
+    home = ctx.obj["CTX_HOME"]
+
+    # Load skill profile
+    skill_path = os.path.join(home, "skills", skill_name, "profile.yaml")
+    if not os.path.exists(skill_path):
+        click.echo(f"Skill '{skill_name}' not found.")
+        return
+
+    with open(skill_path) as f:
+        profile_yaml = f.read()
+
+    archive_data = {
+        "format": "contextledger-export-v1",
+        "skill": skill_name,
+        "profile_yaml": profile_yaml,
+    }
+
+    # Include CMV snapshots unless excluded
+    if not no_snapshots:
+        from contextledger.memory.cmv import CMVEngine
+        engine = CMVEngine()
+        cmv_archive_path = os.path.join(home, "cmv", "archive.json")
+        if os.path.exists(cmv_archive_path):
+            with open(cmv_archive_path) as f:
+                existing = json.load(f)
+            engine.import_archive(existing)
+        cmv_data = engine.export_archive(skill=skill_name)
+        archive_data["cmv"] = cmv_data
+
+    out_path = output or f"{skill_name}.cmv"
+    with open(out_path, "w") as f:
+        json.dump(archive_data, f, indent=2)
+    click.echo(f"Exported to {out_path}")
+    if not no_snapshots:
+        node_count = len(archive_data.get("cmv", {}).get("nodes", []))
+        click.echo(f"  Includes {node_count} CMV snapshots")
+
+
+@cli.command("import-cmv")
+@click.argument("archive_path")
+@click.pass_context
+def import_cmv_cmd(ctx, archive_path):
+    """Import a portable .cmv archive.
+
+    Installs skill profile + all linked snapshots + lineage metadata.
+
+    Example: ctx import-cmv ./team-context.cmv
+    """
+    import json
+    import yaml
+
+    home = ctx.obj["CTX_HOME"]
+
+    with open(archive_path) as f:
+        archive_data = json.load(f)
+
+    fmt = archive_data.get("format", "")
+    if fmt not in ("contextledger-export-v1", "cmv-archive-v1"):
+        click.echo(f"Unknown archive format: {fmt}")
+        return
+
+    # Import skill profile
+    skill_name = archive_data.get("skill")
+    profile_yaml = archive_data.get("profile_yaml")
+    if skill_name and profile_yaml:
+        skill_dir = os.path.join(home, "skills", skill_name)
+        os.makedirs(skill_dir, exist_ok=True)
+        with open(os.path.join(skill_dir, "profile.yaml"), "w") as f:
+            f.write(profile_yaml)
+        click.echo(f"Imported skill: {skill_name}")
+
+    # Import CMV snapshots
+    cmv_data = archive_data.get("cmv")
+    if cmv_data:
+        from contextledger.memory.cmv import CMVEngine
+        engine = CMVEngine()
+
+        # Load existing archive first
+        cmv_dir = os.path.join(home, "cmv")
+        os.makedirs(cmv_dir, exist_ok=True)
+        cmv_archive_path = os.path.join(cmv_dir, "archive.json")
+        if os.path.exists(cmv_archive_path):
+            with open(cmv_archive_path) as f:
+                existing = json.load(f)
+            engine.import_archive(existing)
+
+        imported = engine.import_archive(cmv_data)
+        click.echo(f"Imported {imported} CMV snapshots")
+
+        # Save updated archive
+        full_archive = engine.export_archive()
+        with open(cmv_archive_path, "w") as f:
+            json.dump(full_archive, f, indent=2)
+        click.echo(f"CMV archive saved to {cmv_archive_path}")

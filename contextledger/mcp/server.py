@@ -41,7 +41,11 @@ class ContextLedgerMCP:
 
     def ctx_ingest(self, session_log: dict) -> dict:
         """Ingest a session log. Extract signals, store to memory."""
-        snapshot_id = self._cmv.snapshot(session_log)
+        snapshot_id = self._cmv.snapshot(
+            session_log,
+            skill=self._active_profile,
+            skill_version=self._active_version,
+        )
         self._cmv.trim(snapshot_id)
 
         signals: list[dict] = []
@@ -126,6 +130,7 @@ class ContextLedgerMCP:
     def skill_checkout(self, name: str, version: str | None = None) -> dict:
         """Switch active skill profile."""
         self._active_profile = name
+        self._active_version = version
         result = {"status": "ok", "active_profile": name}
         if version:
             result["version"] = version

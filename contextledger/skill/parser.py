@@ -20,6 +20,12 @@ class ProfileParser:
         Returns the dict with keys: name, version, parent, extraction,
         synthesis, memory_schema, session_context.  Missing sections
         default to empty dicts/lists as appropriate.
+
+        Also recognises optional blocks:
+        - ``composition`` — section-level inheritance (GAP 1/3)
+        - ``backends`` — pluggable backend slots (GAP 2)
+        - ``requires`` — dependency declarations (GAP 4)
+        - ``derived_from`` — CMV provenance links (GAP 5)
         """
         raw = yaml.safe_load(yaml_string) or {}
 
@@ -27,7 +33,7 @@ class ProfileParser:
         if parent == "null" or parent is None:
             parent = None
 
-        return {
+        result: dict[str, Any] = {
             "name": raw.get("name"),
             "version": raw.get("version"),
             "parent": parent,
@@ -36,6 +42,29 @@ class ProfileParser:
             "memory_schema": raw.get("memory_schema", {}),
             "session_context": raw.get("session_context", {}),
         }
+
+        # GAP 3 / GAP 1: composition block for section-level inheritance
+        if "composition" in raw:
+            result["composition"] = raw["composition"]
+
+        # GAP 2: backend plugin slots
+        if "backends" in raw:
+            result["backends"] = raw["backends"]
+
+        # GAP 4: dependency declarations
+        if "requires" in raw:
+            result["requires"] = raw["requires"]
+
+        # GAP 5: CMV provenance links
+        if "derived_from" in raw:
+            result["derived_from"] = raw["derived_from"]
+
+        # Preserve any unknown fields (forward-compatibility)
+        for key, value in raw.items():
+            if key not in result:
+                result[key] = value
+
+        return result
 
     def validate(self, profile: dict[str, Any]) -> None:
         """Validate a parsed profile dict.
